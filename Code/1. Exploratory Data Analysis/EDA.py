@@ -71,21 +71,24 @@ for container in ax.containers:
     ax.bar_label(container)
 plt.show()
 
-#lot the average of actual hours for each of these types (total, lab, eng)
+#Plot the average of actual hours for each of these types (total, lab, eng)
+#(How is it calculated? For example, lets take one investigation type, Full investigation,
+#Look at all the projects under that investigation type and add all of the "total actual hrs" up.
+#Count how many there are and divide them to see the average hrs spent in that investigation type)
 
-#Average total actual hours per project by investigation type
+#Calcuates the average total actual hours for each investigation type
 avg_hours = data.groupby("type_of_investigation") ["total_actual_hrs"].mean()
 ax = avg_hours.plot(kind="bar")
 ax.bar_label(ax.containers[0])
 plt.show()
 
-#Average actual lab hours per project by investigation type
+#Calcuates the average total lab actual hours for each investigation type
 avg_labHours = data.groupby("type_of_investigation") ["lab_actual_hrs"].mean()
 ax1 = avg_labHours.plot(kind="bar")
-ax1.bar_label(ax1.containers[0])
+ax1.bar_label(ax1.containers[0]) #when you draw bars matplotlib puts them into containers, takes the bar and adds the Num on top
 plt.show()
 
-#Average actual eng hours per project by investigation type
+#Calcuates the average total actual eng hours for each investigation type
 avg_engHours = data.groupby("type_of_investigation") ["eng_actual_hrs"].mean()
 ax2 = avg_engHours.plot(kind="bar")
 ax2.bar_label(ax2.containers[0])
