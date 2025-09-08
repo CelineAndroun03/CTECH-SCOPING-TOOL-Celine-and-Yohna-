@@ -44,6 +44,9 @@ print()
 
 print("Duplicated Rows: " + str(data.duplicated().sum()) + ("\n")) # Return boolean Series denoting duplicate rows
 
+#print(data["CCN_Data Hub"].nunique())
+#print(data["CCN_Data Hub"].value_counts())
+
 # ##################################################################
 #     #3) Early Deletion(Columns That are Not Valuable)
 # ##################################################################
@@ -53,7 +56,7 @@ data = data.drop(columns=[ #After visualizing data and seeing what is valuable w
     "Final Field Name",
     "Filename (2023/2024)",
     "CPQ Product SKUs",
-    "CCN_Data Hub",
+    "CCN_Data Hub", #There are 67 unique values
     "Created By",
     "Created by: First Name",
     "Created by: Last Name",
@@ -109,56 +112,142 @@ print(summary.to_string())
 # ##################################################################
 
 #Plot the frequency of each investigation type
-plt.figure(figsize=(8, 6))
-ax = data["type_of_investigation"].value_counts().plot(kind="bar", color='skyblue')
-for container in ax.containers:
-    ax.bar_label(container)
-plt.xlabel('Type of Investigation')
-plt.ylabel('Count')
-plt.title('Frequency of Each Investigation Type')
+types = [
+    "1 - Full Investigation",
+    "2 - Full Investigation + Alternate Construction",
+    "3 - Alternate Construction",
+    "4 - Administrative No Test anticipated (revisions requiring Engineering Review)",
+    "5 - Administrative CB review"
+]
+
+counts = {t: (data["type_of_investigation"] == t).sum() for t in types}
+print(counts)
+plt.figure(figsize=(6, 8))
+ax = pd.Series(counts).plot(kind="bar", color="skyblue")
+total = sum(counts.values())
+print("Total:", total)
+labels = [f"{c} ({c/total*100:.1f}%)" for c in counts.values()]
+ax.bar_label(ax.containers[0], labels=labels)
+
+plt.xlabel("Type of Investigation")
+plt.ylabel("Count")
+plt.title("Frequency of Each Investigation Type")
+plt.title('Average Total Actual Hours by Investigation Type')
 plt.legend(['Investigation Type'])
+plt.xticks(rotation=45, ha="right")
 plt.tight_layout()
 plt.show()
+
 
 # #Plot the average of actual hours for each of these types (total, lab, eng)
 # #(How is it calculated? For example, lets take one investigation type, Full investigation,
 # #Look at all the projects under that investigation type and add all of the "total actual hrs" up.
 # #Count how many there are and divide them to see the average hrs spent in that investigation type)
 
-#Calcuates the average total actual hours for each investigation type
-plt.figure(figsize=(8, 6))
-avg_hours = data.groupby("type_of_investigation") ["total_actual_hrs"].mean()
-ax = avg_hours.plot(kind="bar", color='skyblue')
-ax.bar_label(ax.containers[0])
-plt.xlabel('Type of Investigation')
-plt.ylabel('Count')
-plt.title('Average Total Actual Hours by Investigation Type')
-plt.legend(['Investigation Type'])
+#Calcuates the average total actual hours for each investigation type(IGNORES MISSING VALUES LIKE N/A)
+avg_hours = (
+    data.loc[data["type_of_investigation"].isin(types)]
+        .groupby("type_of_investigation")["total_actual_hrs"]
+        .mean()
+        .reindex(types)
+)
+
+median_hours = (
+    data.loc[data["type_of_investigation"].isin(types)]
+        .groupby("type_of_investigation")["total_actual_hrs"]
+        .median()
+        .reindex(types)
+)
+
+summary = pd.DataFrame({"Mean": avg_hours, "Median": median_hours})
+
+ax = summary.plot(kind="bar", figsize=(10, 6))
+plt.xlabel("Type of Investigation")
+plt.ylabel("Hours")
+plt.title("Mean vs Median Total Actual Hours by Investigation Type")
+plt.legend(["Mean", "Median"])
+plt.xticks(rotation=30, ha="right")
+
+# add labels on top of bars
+for container in ax.containers:
+    ax.bar_label(container, fmt="%.1f")
+
+mask=data["type_of_investigation"].isin(types)
+na_total = data.loc[mask,"total_actual_hrs"].isna().sum()
+total_rows = data.loc[mask, "total_actual_hrs"].shape[0]
+pct =na_total /total_rows * 100
+
+ax.text(
+    0.99, -0.75,
+    f"Note: {na_total} NA / {total_rows} rows ({pct:.1f}%)",
+    transform=ax.transAxes,
+    ha="right", va="top",
+    fontsize=9, color="black"
+)
+plt.tight_layout()
 plt.show()
 
-#Calcuates the average total lab actual hours for each investigation type
-plt.figure(figsize=(8, 6))
-avg_labHours = data.groupby("type_of_investigation") ["lab_actual_hrs"].mean()
-ax1 = avg_labHours.plot(kind="bar", color='skyblue')
-ax1.bar_label(ax1.containers[0]) #when you draw bars matplotlib puts them into containers, takes the bar and adds the Num on top
-plt.xlabel('Type of Investigation')
-plt.ylabel('Count')
-plt.title('Average Lab Actual Hours by Investigation Type')
-plt.legend(['Investigation Type'])
+# #Calcuates the average total lab actual hours for each investigation type
+avg_lab = (
+    data.loc[data["type_of_investigation"].isin(types)]
+        .groupby("type_of_investigation")["lab_actual_hrs"]
+        .mean()
+        .reindex(types)
+)
+
+median_lab = (
+    data.loc[data["type_of_investigation"].isin(types)]
+        .groupby("type_of_investigation")["lab_actual_hrs"]
+        .median()
+        .reindex(types)
+)
+
+summary_lab = pd.DataFrame({"Mean": avg_lab, "Median": median_lab})
+
+ax = summary_lab.plot(kind="bar", figsize=(10, 6))
+plt.xlabel("Type of Investigation")
+plt.ylabel("Hours")
+plt.title("Mean vs Median Lab Actual Hours by Investigation Type")
+plt.legend(["Mean", "Median"])
+plt.xticks(rotation=30, ha="right")
+
+# add labels on top of bars
+for container in ax.containers:
+    ax.bar_label(container, fmt="%.1f")
+
+plt.tight_layout()
 plt.show()
 
-#Calcuates the average total actual eng hours for each investigation type
-plt.figure(figsize=(8, 6))
-avg_engHours = data.groupby("type_of_investigation") ["eng_actual_hrs"].mean()
-ax2 = avg_engHours.plot(kind="bar", color='skyblue')
-ax2.bar_label(ax2.containers[0])
-plt.xlabel('Type of Investigation')
-plt.ylabel('Count')
-plt.title('Average Engineering Actual Hours by Investigation Type')
+# #Calcuates the average total actual eng hours for each investigation type
+avg_eng = (
+    data.loc[data["type_of_investigation"].isin(types)]
+        .groupby("type_of_investigation")["eng_actual_hrs"]
+        .mean()
+        .reindex(types)
+)
 
+median_eng = (
+    data.loc[data["type_of_investigation"].isin(types)]
+        .groupby("type_of_investigation")["eng_actual_hrs"]
+        .median()
+        .reindex(types)
+)
+
+summary_eng = pd.DataFrame({"Mean": avg_eng, "Median": median_eng})
+
+ax = summary_eng.plot(kind="bar", figsize=(10, 6))
+plt.xlabel("Type of Investigation")
+plt.ylabel("Hours")
+plt.title("Mean vs Median Eng Actual Hours by Investigation Type")
+plt.legend(["Mean", "Median"])
+plt.xticks(rotation=30, ha="right")
+
+# add labels on top of bars
+for container in ax.containers:
+    ax.bar_label(container, fmt="%.1f")
+
+plt.tight_layout()
 plt.show()
-print()
-print()
 
 # ##################################################################
 # #6) correlation between the variables and the targets
