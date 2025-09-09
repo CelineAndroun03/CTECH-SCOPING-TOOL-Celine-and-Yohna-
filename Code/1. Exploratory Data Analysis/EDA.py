@@ -1,4 +1,3 @@
-
 # ##################################################################
 #     #1) Load the Excel dataset
 # ##################################################################
@@ -10,6 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas.api.types as ptypes
 import warnings
+import seaborn as sns
+from pandas.api.types import is_numeric_dtype
 
 warnings.filterwarnings("ignore") # Ignore python warnings
 pd.set_option('display.max_columns', None) # Settings to print all columns in the dataframe
@@ -81,20 +82,25 @@ data["total_eng_hrs"] = pd.to_numeric(data["total_eng_hrs"], errors="coerce")
 missing_count = data.isna().sum() #Finds the sum of N/A values for each column
 missing_percent = (data.isna().mean()*100).round(2) #Finds the percentage of N/A values for each column
 
-distribution = {} 
-for col in data.columns: #Loops through every column name in the dataset
-    if data[col].dropna().empty: #drop the missing values, and check if anything is left
-        distribution[col] = "No data" #If nothing is left, No data
-    elif not ptypes.is_numeric_dtype(data[col]):
-        distribution[col] = "Categorical"
+distribution = {} #Creates an empty dictionary to store the results for each column.
+for col in data.columns: #Loops through every column in the dataset.
+    col_series = data[col].dropna() #Removes any missing values
+
+    if col_series.empty:  #If the column has no data left after removing missing values, label it as "No data".
+        distribution[col] = "No data"
+    elif not is_numeric_dtype(data[col]):
+        distribution[col] = "Categorical" #If the column is not numeric, label it as Categorical.
     else:
-        s = skew(data[col].dropna()) #Selects the column and removes missing values
-        if s > 1:
-            distribution[col] = "Right skewed" #skew is positive
-        if s < -1:
-            distribution[col] = "Left skewed" #skew is negative
+        s = skew(col_series)#If the column is numeric, calculate its skewness using the skew() function.
+        if s >= 1:
+            distribution[col] = "Right skewed"  #If skewness is 1 or more, the data has a long tail on the right (a few large values).
+        elif s <= -1:
+            distribution[col] = "Left skewed" #If skewness is -1 or less, the data has a long tail on the left (a few small values).
+        elif abs(s) < 0.5:
+            distribution[col] = "normal" #If skewness is close to 0 (between -0.5 and 0.5), the data is fairly symmetrical.
         else:
-            distribution[col] = "Normal" #bell curve
+            distribution[col] = "Slightly skewed"
+
 
 #Table for % of missing values
 summary = pd.DataFrame({
@@ -106,6 +112,29 @@ summary = pd.DataFrame({
 
 print("\nMISSING VALUES PER ATTRIBUTE + DISTRIBUTION")
 print(summary.to_string())
+
+########################################################################################################
+#VISUALIZING THE DISTRIBUTION
+
+# Loop through numeric columns
+for col in data.select_dtypes(include=['int64', 'float64']).columns:
+    plt.figure(figsize=(6,4))
+    sns.histplot(data[col].dropna(), kde=True, bins=30)
+    plt.title(f"Distribution of {col}")
+    plt.xlabel(col)
+    plt.ylabel("Frequency")
+    plt.show()
+
+# Loop through categorical columns
+for col in data.select_dtypes(include=['object', 'category']).columns:
+    plt.figure(figsize=(8,4))
+    sns.countplot(x=data[col])
+    plt.title(f"Count Plot of {col}")
+    plt.xticks(rotation=45)
+    plt.show()
+
+
+
 
 # ##################################################################
 #     #5) Data Visualization
@@ -140,11 +169,12 @@ plt.show()
 
 
 # #Plot the average of actual hours for each of these types (total, lab, eng)
-# #(How is it calculated? For example, lets take one investigation type, Full investigation,
+# #(How is it calculated? For example, lets take one investigation type( Full investigation),
 # #Look at all the projects under that investigation type and add all of the "total actual hrs" up.
 # #Count how many there are and divide them to see the average hrs spent in that investigation type)
 
-#Calcuates the average total actual hours for each investigation type(IGNORES MISSING VALUES LIKE N/A)
+
+#Calcuates the average total actual hours for each investigation type (IGNORES MISSING VALUES LIKE N/A)
 avg_hours = (
     data.loc[data["type_of_investigation"].isin(types)]
         .groupby("type_of_investigation")["total_actual_hrs"]
@@ -249,26 +279,26 @@ for container in ax.containers:
 plt.tight_layout()
 plt.show()
 
-# ##################################################################
-# #6) correlation between the variables and the targets
-# ##################################################################
+# # ##################################################################
+# # #6) correlation between the variables and the targets
+# # ##################################################################
 
-print("############################### Lab Actual Hours Correlation to Other Attributes #################################")
-corr = data.corr(numeric_only=True)
-print(corr["lab_actual_hrs"].sort_values(ascending=False))
-print("############################### Eng Actual Hours Correlation to Other Attributes #################################")
-print(corr["eng_actual_hrs"].sort_values(ascending=False))
-
-#I need to look into Engineering and lab actual hours more in depth, since they may be influenced by different variables
-#or the same variables but in different ways
-
-
+# print("############################### Lab Actual Hours Correlation to Other Attributes #################################")
 # corr = data.corr(numeric_only=True)
-# drop_cols = [col for col in corr.columns if "hrs" in col.lower()]
-# lab_corr = corr ["lab_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
-# eng_corr = corr ["eng_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
-# comparison = pd.DataFrame({
-#     "lab_Actual_Hrs": lab_corr,
-#     "eng_Actual_Hrs": eng_corr,
-# })
-# print(comparison)
+# print(corr["lab_actual_hrs"].sort_values(ascending=False))
+# print("############################### Eng Actual Hours Correlation to Other Attributes #################################")
+# print(corr["eng_actual_hrs"].sort_values(ascending=False))
+
+# #I need to look into Engineering and lab actual hours more in depth, since they may be influenced by different variables
+# #or the same variables but in different ways
+
+
+# # corr = data.corr(numeric_only=True)
+# # drop_cols = [col for col in corr.columns if "hrs" in col.lower()]
+# # lab_corr = corr ["lab_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
+# # eng_corr = corr ["eng_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
+# # comparison = pd.DataFrame({
+# #     "lab_Actual_Hrs": lab_corr,
+# #     "eng_Actual_Hrs": eng_corr,
+# # })
+# # print(comparison)
