@@ -82,24 +82,24 @@ data["total_eng_hrs"] = pd.to_numeric(data["total_eng_hrs"], errors="coerce")
 missing_count = data.isna().sum() #Finds the sum of N/A values for each column
 missing_percent = (data.isna().mean()*100).round(2) #Finds the percentage of N/A values for each column
 
-distribution = {} #Creates an empty dictionary to store the results for each column.
-for col in data.columns: #Loops through every column in the dataset.
-    col_series = data[col].dropna() #Removes any missing values
+# distribution = {} #Creates an empty dictionary to store the results for each column.
+# for col in data.columns: #Loops through every column in the dataset.
+#     col_series = data[col].dropna() #Removes any missing values
 
-    if col_series.empty:  #If the column has no data left after removing missing values, label it as "No data".
-        distribution[col] = "No data"
-    elif not is_numeric_dtype(data[col]):
-        distribution[col] = "Categorical" #If the column is not numeric, label it as Categorical.
-    else:
-        s = skew(col_series)#If the column is numeric, calculate its skewness using the skew() function.
-        if s >= 1:
-            distribution[col] = "Right skewed"  #If skewness is 1 or more, the data has a long tail on the right (a few large values).
-        elif s <= -1:
-            distribution[col] = "Left skewed" #If skewness is -1 or less, the data has a long tail on the left (a few small values).
-        elif abs(s) < 0.5:
-            distribution[col] = "normal" #If skewness is close to 0 (between -0.5 and 0.5), the data is fairly symmetrical.
-        else:
-            distribution[col] = "Slightly skewed"
+#     if col_series.empty:  #If the column has no data left after removing missing values, label it as "No data".
+#         distribution[col] = "No data"
+#     elif not is_numeric_dtype(data[col]):
+#         distribution[col] = "Categorical" #If the column is not numeric, label it as Categorical.
+#     else:
+#         s = skew(col_series)#If the column is numeric, calculate its skewness using the skew() function.
+#         if s >= 1:
+#             distribution[col] = "Right skewed"  #If skewness is 1 or more, the data has a long tail on the right (a few large values).
+#         elif s <= -1:
+#             distribution[col] = "Left skewed" #If skewness is -1 or less, the data has a long tail on the left (a few small values).
+#         elif abs(s) < 0.5:
+#             distribution[col] = "normal" #If skewness is close to 0 (between -0.5 and 0.5), the data is fairly symmetrical.
+#         else:
+#             distribution[col] = "Slightly skewed"
 
 
 #Table for % of missing values
@@ -116,189 +116,189 @@ print(summary.to_string())
 ########################################################################################################
 #VISUALIZING THE DISTRIBUTION
 
-# Loop through numeric columns
-for col in data.select_dtypes(include=['int64', 'float64']).columns:
-    plt.figure(figsize=(6,4))
-    sns.histplot(data[col].dropna(), kde=True, bins=30)
-    plt.title(f"Distribution of {col}")
-    plt.xlabel(col)
-    plt.ylabel("Frequency")
-    plt.show()
+# # Loop through numeric columns
+# for col in data.select_dtypes(include=['int64', 'float64']).columns:
+#     plt.figure(figsize=(6,4))
+#     sns.histplot(data[col].dropna(), kde=True, bins=30)
+#     plt.title(f"Distribution of {col}")
+#     plt.xlabel(col)
+#     plt.ylabel("Frequency")
+#     plt.show()
 
-# Loop through categorical columns
-for col in data.select_dtypes(include=['object', 'category']).columns:
-    plt.figure(figsize=(8,4))
-    sns.countplot(x=data[col])
-    plt.title(f"Count Plot of {col}")
-    plt.xticks(rotation=45)
-    plt.show()
-
-
+# # Loop through categorical columns
+# for col in data.select_dtypes(include=['object', 'category']).columns:
+#     plt.figure(figsize=(8,4))
+#     sns.countplot(x=data[col])
+#     plt.title(f"Count Plot of {col}")
+#     plt.xticks(rotation=45)
+#     plt.show()
 
 
-# ##################################################################
-#     #5) Data Visualization
-# ##################################################################
 
-#Plot the frequency of each investigation type
-types = [
-    "1 - Full Investigation",
-    "2 - Full Investigation + Alternate Construction",
-    "3 - Alternate Construction",
-    "4 - Administrative No Test anticipated (revisions requiring Engineering Review)",
-    "5 - Administrative CB review"
-]
-
-counts = {t: (data["type_of_investigation"] == t).sum() for t in types}
-print(counts)
-plt.figure(figsize=(6, 8))
-ax = pd.Series(counts).plot(kind="bar", color="skyblue")
-total = sum(counts.values())
-print("Total:", total)
-labels = [f"{c} ({c/total*100:.1f}%)" for c in counts.values()]
-ax.bar_label(ax.containers[0], labels=labels)
-
-plt.xlabel("Type of Investigation")
-plt.ylabel("Count")
-plt.title("Frequency of Each Investigation Type")
-plt.title('Average Total Actual Hours by Investigation Type')
-plt.legend(['Investigation Type'])
-plt.xticks(rotation=45, ha="right")
-plt.tight_layout()
-plt.show()
-
-
-# #Plot the average of actual hours for each of these types (total, lab, eng)
-# #(How is it calculated? For example, lets take one investigation type( Full investigation),
-# #Look at all the projects under that investigation type and add all of the "total actual hrs" up.
-# #Count how many there are and divide them to see the average hrs spent in that investigation type)
-
-
-#Calcuates the average total actual hours for each investigation type (IGNORES MISSING VALUES LIKE N/A)
-avg_hours = (
-    data.loc[data["type_of_investigation"].isin(types)]
-        .groupby("type_of_investigation")["total_actual_hrs"]
-        .mean()
-        .reindex(types)
-)
-
-median_hours = (
-    data.loc[data["type_of_investigation"].isin(types)]
-        .groupby("type_of_investigation")["total_actual_hrs"]
-        .median()
-        .reindex(types)
-)
-
-summary = pd.DataFrame({"Mean": avg_hours, "Median": median_hours})
-
-ax = summary.plot(kind="bar", figsize=(10, 6))
-plt.xlabel("Type of Investigation")
-plt.ylabel("Hours")
-plt.title("Mean vs Median Total Actual Hours by Investigation Type")
-plt.legend(["Mean", "Median"])
-plt.xticks(rotation=30, ha="right")
-
-# add labels on top of bars
-for container in ax.containers:
-    ax.bar_label(container, fmt="%.1f")
-
-mask=data["type_of_investigation"].isin(types)
-na_total = data.loc[mask,"total_actual_hrs"].isna().sum()
-total_rows = data.loc[mask, "total_actual_hrs"].shape[0]
-pct =na_total /total_rows * 100
-
-ax.text(
-    0.99, -0.75,
-    f"Note: {na_total} NA / {total_rows} rows ({pct:.1f}%)",
-    transform=ax.transAxes,
-    ha="right", va="top",
-    fontsize=9, color="black"
-)
-plt.tight_layout()
-plt.show()
-
-# #Calcuates the average total lab actual hours for each investigation type
-avg_lab = (
-    data.loc[data["type_of_investigation"].isin(types)]
-        .groupby("type_of_investigation")["lab_actual_hrs"]
-        .mean()
-        .reindex(types)
-)
-
-median_lab = (
-    data.loc[data["type_of_investigation"].isin(types)]
-        .groupby("type_of_investigation")["lab_actual_hrs"]
-        .median()
-        .reindex(types)
-)
-
-summary_lab = pd.DataFrame({"Mean": avg_lab, "Median": median_lab})
-
-ax = summary_lab.plot(kind="bar", figsize=(10, 6))
-plt.xlabel("Type of Investigation")
-plt.ylabel("Hours")
-plt.title("Mean vs Median Lab Actual Hours by Investigation Type")
-plt.legend(["Mean", "Median"])
-plt.xticks(rotation=30, ha="right")
-
-# add labels on top of bars
-for container in ax.containers:
-    ax.bar_label(container, fmt="%.1f")
-
-plt.tight_layout()
-plt.show()
-
-# #Calcuates the average total actual eng hours for each investigation type
-avg_eng = (
-    data.loc[data["type_of_investigation"].isin(types)]
-        .groupby("type_of_investigation")["eng_actual_hrs"]
-        .mean()
-        .reindex(types)
-)
-
-median_eng = (
-    data.loc[data["type_of_investigation"].isin(types)]
-        .groupby("type_of_investigation")["eng_actual_hrs"]
-        .median()
-        .reindex(types)
-)
-
-summary_eng = pd.DataFrame({"Mean": avg_eng, "Median": median_eng})
-
-ax = summary_eng.plot(kind="bar", figsize=(10, 6))
-plt.xlabel("Type of Investigation")
-plt.ylabel("Hours")
-plt.title("Mean vs Median Eng Actual Hours by Investigation Type")
-plt.legend(["Mean", "Median"])
-plt.xticks(rotation=30, ha="right")
-
-# add labels on top of bars
-for container in ax.containers:
-    ax.bar_label(container, fmt="%.1f")
-
-plt.tight_layout()
-plt.show()
 
 # # ##################################################################
-# # #6) correlation between the variables and the targets
+# #     #5) Data Visualization
 # # ##################################################################
 
-# print("############################### Lab Actual Hours Correlation to Other Attributes #################################")
-# corr = data.corr(numeric_only=True)
-# print(corr["lab_actual_hrs"].sort_values(ascending=False))
-# print("############################### Eng Actual Hours Correlation to Other Attributes #################################")
-# print(corr["eng_actual_hrs"].sort_values(ascending=False))
+# #Plot the frequency of each investigation type
+# types = [
+#     "1 - Full Investigation",
+#     "2 - Full Investigation + Alternate Construction",
+#     "3 - Alternate Construction",
+#     "4 - Administrative No Test anticipated (revisions requiring Engineering Review)",
+#     "5 - Administrative CB review"
+# ]
 
-# #I need to look into Engineering and lab actual hours more in depth, since they may be influenced by different variables
-# #or the same variables but in different ways
+# counts = {t: (data["type_of_investigation"] == t).sum() for t in types}
+# print(counts)
+# plt.figure(figsize=(6, 8))
+# ax = pd.Series(counts).plot(kind="bar", color="skyblue")
+# total = sum(counts.values())
+# print("Total:", total)
+# labels = [f"{c} ({c/total*100:.1f}%)" for c in counts.values()]
+# ax.bar_label(ax.containers[0], labels=labels)
+
+# plt.xlabel("Type of Investigation")
+# plt.ylabel("Count")
+# plt.title("Frequency of Each Investigation Type")
+# plt.title('Average Total Actual Hours by Investigation Type')
+# plt.legend(['Investigation Type'])
+# plt.xticks(rotation=45, ha="right")
+# plt.tight_layout()
+# plt.show()
 
 
+# # #Plot the average of actual hours for each of these types (total, lab, eng)
+# # #(How is it calculated? For example, lets take one investigation type( Full investigation),
+# # #Look at all the projects under that investigation type and add all of the "total actual hrs" up.
+# # #Count how many there are and divide them to see the average hrs spent in that investigation type)
+
+
+# #Calcuates the average total actual hours for each investigation type (IGNORES MISSING VALUES LIKE N/A)
+# avg_hours = (
+#     data.loc[data["type_of_investigation"].isin(types)]
+#         .groupby("type_of_investigation")["total_actual_hrs"]
+#         .mean()
+#         .reindex(types)
+# )
+
+# median_hours = (
+#     data.loc[data["type_of_investigation"].isin(types)]
+#         .groupby("type_of_investigation")["total_actual_hrs"]
+#         .median()
+#         .reindex(types)
+# )
+
+# summary = pd.DataFrame({"Mean": avg_hours, "Median": median_hours})
+
+# ax = summary.plot(kind="bar", figsize=(10, 6))
+# plt.xlabel("Type of Investigation")
+# plt.ylabel("Hours")
+# plt.title("Mean vs Median Total Actual Hours by Investigation Type")
+# plt.legend(["Mean", "Median"])
+# plt.xticks(rotation=30, ha="right")
+
+# # add labels on top of bars
+# for container in ax.containers:
+#     ax.bar_label(container, fmt="%.1f")
+
+# mask=data["type_of_investigation"].isin(types)
+# na_total = data.loc[mask,"total_actual_hrs"].isna().sum()
+# total_rows = data.loc[mask, "total_actual_hrs"].shape[0]
+# pct =na_total /total_rows * 100
+
+# ax.text(
+#     0.99, -0.75,
+#     f"Note: {na_total} NA / {total_rows} rows ({pct:.1f}%)",
+#     transform=ax.transAxes,
+#     ha="right", va="top",
+#     fontsize=9, color="black"
+# )
+# plt.tight_layout()
+# plt.show()
+
+# # #Calcuates the average total lab actual hours for each investigation type
+# avg_lab = (
+#     data.loc[data["type_of_investigation"].isin(types)]
+#         .groupby("type_of_investigation")["lab_actual_hrs"]
+#         .mean()
+#         .reindex(types)
+# )
+
+# median_lab = (
+#     data.loc[data["type_of_investigation"].isin(types)]
+#         .groupby("type_of_investigation")["lab_actual_hrs"]
+#         .median()
+#         .reindex(types)
+# )
+
+# summary_lab = pd.DataFrame({"Mean": avg_lab, "Median": median_lab})
+
+# ax = summary_lab.plot(kind="bar", figsize=(10, 6))
+# plt.xlabel("Type of Investigation")
+# plt.ylabel("Hours")
+# plt.title("Mean vs Median Lab Actual Hours by Investigation Type")
+# plt.legend(["Mean", "Median"])
+# plt.xticks(rotation=30, ha="right")
+
+# # add labels on top of bars
+# for container in ax.containers:
+#     ax.bar_label(container, fmt="%.1f")
+
+# plt.tight_layout()
+# plt.show()
+
+# # #Calcuates the average total actual eng hours for each investigation type
+# avg_eng = (
+#     data.loc[data["type_of_investigation"].isin(types)]
+#         .groupby("type_of_investigation")["eng_actual_hrs"]
+#         .mean()
+#         .reindex(types)
+# )
+
+# median_eng = (
+#     data.loc[data["type_of_investigation"].isin(types)]
+#         .groupby("type_of_investigation")["eng_actual_hrs"]
+#         .median()
+#         .reindex(types)
+# )
+
+# summary_eng = pd.DataFrame({"Mean": avg_eng, "Median": median_eng})
+
+# ax = summary_eng.plot(kind="bar", figsize=(10, 6))
+# plt.xlabel("Type of Investigation")
+# plt.ylabel("Hours")
+# plt.title("Mean vs Median Eng Actual Hours by Investigation Type")
+# plt.legend(["Mean", "Median"])
+# plt.xticks(rotation=30, ha="right")
+
+# # add labels on top of bars
+# for container in ax.containers:
+#     ax.bar_label(container, fmt="%.1f")
+
+# plt.tight_layout()
+# plt.show()
+
+# # # ##################################################################
+# # # #6) correlation between the variables and the targets
+# # # ##################################################################
+
+# # print("############################### Lab Actual Hours Correlation to Other Attributes #################################")
 # # corr = data.corr(numeric_only=True)
-# # drop_cols = [col for col in corr.columns if "hrs" in col.lower()]
-# # lab_corr = corr ["lab_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
-# # eng_corr = corr ["eng_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
-# # comparison = pd.DataFrame({
-# #     "lab_Actual_Hrs": lab_corr,
-# #     "eng_Actual_Hrs": eng_corr,
-# # })
-# # print(comparison)
+# # print(corr["lab_actual_hrs"].sort_values(ascending=False))
+# # print("############################### Eng Actual Hours Correlation to Other Attributes #################################")
+# # print(corr["eng_actual_hrs"].sort_values(ascending=False))
+
+# # #I need to look into Engineering and lab actual hours more in depth, since they may be influenced by different variables
+# # #or the same variables but in different ways
+
+
+# # # corr = data.corr(numeric_only=True)
+# # # drop_cols = [col for col in corr.columns if "hrs" in col.lower()]
+# # # lab_corr = corr ["lab_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
+# # # eng_corr = corr ["eng_actual_hrs"].drop(drop_cols).sort_values(ascending=False)
+# # # comparison = pd.DataFrame({
+# # #     "lab_Actual_Hrs": lab_corr,
+# # #     "eng_Actual_Hrs": eng_corr,
+# # # })
+# # # print(comparison)
