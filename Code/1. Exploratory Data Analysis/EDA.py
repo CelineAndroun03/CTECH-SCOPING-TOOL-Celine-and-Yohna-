@@ -244,7 +244,60 @@ print(corr["Eng. AH"].sort_values(ascending=False))
 
 
 
+#I am still trying to understand hoe outliers work; however, from a quick glance it seems that most projects have normal hours,
+#but there are some with extremely high hours (outliers). Some rows also have negative hour values, so I am assuming the data
+#needs some cleaning up before modeling. 
+
+
+#^^^^^^^^^^
 
 # ##################################################################
 # #7) Outliers to target
 # ##################################################################
+outlier_cols = ["Eng. SH", "Lab. SH", "Eng. AH", "Lab. AH"]
+
+# (optional but useful) totals
+data["Total SH"] = data["Eng. SH"] + data["Lab. SH"]
+data["Total AH"] = data["Eng. AH"] + data["Lab. AH"]
+outlier_cols += ["Total SH", "Total AH"]
+
+# Negative / invalid hours check
+neg = data[(data[outlier_cols] < 0).any(axis=1)]
+print("\nNEGATIVE HOURS ROWS:", neg.shape[0])
+if neg.shape[0] > 0:
+    print(neg[outlier_cols].head(10))
+
+# IQR outlier check (handles zero-heavy columns)
+print("\nIQR OUTLIER CHECK (1.5 * IQR):")
+for col in outlier_cols:
+
+    # Use only non-zero values for IQR so Lab columns don't get bounds [0,0]
+    temp = data.loc[data[col] > 0, col].dropna()
+
+    # If column is all zeros / empty, skip
+    if temp.empty:
+        print(f"\n--- {col} ---")
+        print("Skipped (all zeros or no data)")
+        continue
+
+    Q1 = temp.quantile(0.25)
+    Q3 = temp.quantile(0.75)
+    IQR = Q3 - Q1
+
+    # If IQR is still 0 (too many identical values), skip
+    if IQR == 0:
+        print(f"\n--- {col} ---")
+        print("Skipped (IQR = 0, values too concentrated)")
+        continue
+
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+
+    outliers = data[(data[col] > 0) & ((data[col] < lower) | (data[col] > upper))]
+
+    print(f"\n--- {col} ---")
+    print(f"Bounds: [{lower:.2f}, {upper:.2f}]")
+    print(f"Outliers Found: {outliers.shape[0]}")
+    print("Top 5 outlier values:")
+    print(outliers[col].sort_values(ascending=False).head(5))
+
