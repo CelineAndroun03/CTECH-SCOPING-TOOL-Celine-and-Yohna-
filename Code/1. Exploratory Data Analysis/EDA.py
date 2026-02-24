@@ -155,7 +155,7 @@ model_data = model_data.drop(columns=["Investigation_type_Missing"], errors="ign
 print(model_data.filter(like="Investigation_type").head())
 inv_cols = model_data.filter(like="Investigation_type_").columns
 print("\n")
-print(model_data[inv_cols].sum(axis=1).value_counts()) #64 are blank
+print(model_data[inv_cols].sum(axis=1).value_counts()) #64 missing values, dropping it
 model_data = model_data[model_data[inv_cols].sum(axis=1) > 0] #Drop blank Cells
 model_data[inv_cols].sum(axis=1).value_counts() #Confirm it worked
 
@@ -165,6 +165,7 @@ model_data["type_of_investigation"] = model_data["type_of_investigation"].fillna
 TOI_ohe = pd.get_dummies(model_data["type_of_investigation"], prefix="type_of_investigation").astype(int)
 model_data = pd.concat ( [model_data, TOI_ohe], axis=1)
 model_data = model_data.drop(columns=["type_of_investigation"], errors="ignore")
+model_data = model_data.drop(columns=["type_of_investigation_Missing"]) 
 print(model_data.filter(like="type_of_investigation").head())
 TOI_cols = model_data.filter(like="type_of_investigation_").columns
 print(model_data[TOI_cols].sum())
@@ -270,7 +271,7 @@ results_df.to_excel("near_constant_columns_90pct.xlsx", index=False)
 print("\nSaved: near_constant_columns_90pct.xlsx")
 
 
-#^^^^^^^^^^^^^^^^^^^^^ I DID NOT DROP ANY YET COLUMNS YET IN THIS STEP, UNTIL YOU LET ME KNOW WHAT YOU THINK!
+#^^^^^^^^^^^^^^^^^^^^^ I DID NOT DROP ANY COLUMNS YET IN THIS STEP, UNTIL YOU LET ME KNOW WHAT YOU THINK!
 
 # model_data = model_data.drop(columns=single_value_cols)
 
