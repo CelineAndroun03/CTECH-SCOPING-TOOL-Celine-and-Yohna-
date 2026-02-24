@@ -156,21 +156,135 @@ print(model_data.filter(like="Investigation_type").head())
 inv_cols = model_data.filter(like="Investigation_type_").columns
 print("\n")
 print(model_data[inv_cols].sum(axis=1).value_counts()) #64 are blank
-model_data = model_data[model_data[inv_cols].sum(axis=1) > 0]
-model_data[inv_cols].sum(axis=1).value_counts()
+model_data = model_data[model_data[inv_cols].sum(axis=1) > 0] #Drop blank Cells
+model_data[inv_cols].sum(axis=1).value_counts() #Confirm it worked
 
 
 #4 Use One-Hot Encoding for type_of_investigation  
 model_data["type_of_investigation"] = model_data["type_of_investigation"].fillna("Missing")
 TOI_ohe = pd.get_dummies(model_data["type_of_investigation"], prefix="type_of_investigation").astype(int)
 model_data = pd.concat ( [model_data, TOI_ohe], axis=1)
-model_data = model_data.drop(columns=["type_of_investigation"])
 model_data = model_data.drop(columns=["type_of_investigation"], errors="ignore")
 print(model_data.filter(like="type_of_investigation").head())
 TOI_cols = model_data.filter(like="type_of_investigation_").columns
 print(model_data[TOI_cols].sum())
 print("\n")
 print(model_data[TOI_cols].sum(axis=1).value_counts())
+
+
+#5 Converting counts into meaningful features
+
+#total_CB_count -> binary (0/1)
+model_data["total_CB_count"] = pd.to_numeric(model_data["total_CB_count"], errors="coerce")
+model_data["total_CB_count"] = (model_data["total_CB_count"].fillna(0) > 0).astype(int)
+
+#total_test_count_Binary -> binary (0/1)
+model_data["total_test_count"] = pd.to_numeric(model_data["total_test_count"], errors="coerce")
+model_data["total_test_count_Binary"] = (model_data["total_test_count"].fillna(0) > 0).astype(int)
+
+#standard_count -> int
+model_data["standard_count"] = pd.to_numeric(model_data["standard_count"], errors="coerce")
+model_data["standard_count"] = model_data["standard_count"].fillna(0).astype(int)
+
+#CCN_Data Hub Top 10 + OTHER + OHE
+TOPK = 10
+HUB_COL = "CCN_Data Hub"
+
+model_data[HUB_COL] = model_data[HUB_COL].fillna("Missing").astype(str).str.strip()
+
+hub_counts = model_data[HUB_COL].value_counts()
+hub_counts = hub_counts.drop(labels=["0"], errors="ignore")
+
+top10 = set(hub_counts.head(TOPK).index)
+
+model_data["CCN_Hub_top10"] = np.where(model_data[HUB_COL].isin(top10),
+                                      model_data[HUB_COL],
+                                      "OTHER")
+
+ccn_ohe = pd.get_dummies(model_data["CCN_Hub_top10"], prefix="CCN_Top10").astype(int)
+model_data = pd.concat([model_data, ccn_ohe], axis=1)
+
+model_data = model_data.drop(columns=[HUB_COL, "CCN_Hub_top10"], errors="ignore")
+
+print(" Step 5 complete")
+
+#Quick Check (binary columns)
+print(model_data["total_CB_count"].value_counts())
+print(model_data["total_test_count_Binary"].value_counts())
+
+
+#Check CCN Top10 columns
+print([c for c in model_data.columns if c.startswith("CCN_Top10_")])
+print(model_data.shape)
+print("\n")
+
+
+# STEP 6: Drop columns with only one unique value
+
+
+single_value_cols = []
+
+for col in model_data.columns:
+    unique_vals = model_data[col].nunique(dropna=False)
+    if unique_vals <= 1:
+        single_value_cols.append(col)
+        print(f"{col}  --> unique values: {unique_vals}")
+
+print("\nTotal columns to drop:", len(single_value_cols)) #four of them
+
+
+#Columns where 90% or more share the same value
+THRESH = 0.90  # 90%
+
+results = []
+
+n_rows = len(model_data)
+
+for col in model_data.columns:
+    vc = model_data[col].value_counts(dropna=False)
+    top_value = vc.index[0]
+    top_count = int(vc.iloc[0])
+    top_pct = top_count / n_rows
+
+    if top_pct >= THRESH:
+        results.append({
+            "column": col,
+            "top_value": top_value,
+            "top_count": top_count,
+            "top_percent": round(top_pct * 100, 2),
+            "unique_values": int(model_data[col].nunique(dropna=False))
+        })
+
+# sort: most “constant” first
+results_df = pd.DataFrame(results).sort_values("top_percent", ascending=False)
+
+print(f"\nColumns with >= {int(THRESH*100)}% same value: {len(results_df)}\n")
+if len(results_df) > 0:
+    # show all rows (or change to .head(50))
+    print(results_df.to_string(index=False))
+else:
+    print("None found.")
+
+# Optional: save to Excel for easy filtering
+results_df.to_excel("near_constant_columns_90pct.xlsx", index=False)
+print("\nSaved: near_constant_columns_90pct.xlsx")
+
+
+#^^^^^^^^^^^^^^^^^^^^^ I DID NOT DROP ANY YET COLUMNS YET IN THIS STEP, UNTIL YOU LET ME KNOW WHAT YOU THINK!
+
+# model_data = model_data.drop(columns=single_value_cols)
+
+# print("New shape after dropping:", model_data.shape)
+
+
+
+
+
+
+
+
+
+
 
 
 
