@@ -15,23 +15,16 @@ from scipy.stats import kruskal
 import statsmodels.api as sm
 from sklearn.preprocessing import LabelEncoder
 
-
-warnings.filterwarnings("ignore") # Ignore python warnings
-pd.set_option('display.max_columns', None) # Settings to print all columns in the dataframe
-pd.set_option('display.max_rows', None) # Settings to print all rows in the dataframe
-
 # 2: Download Data
 data = pd.read_excel("Final_data_Ctech.xlsx")
 print("Shape:", data.shape) #Prints (rows,columns)
 
-#3-Delete columns we dont need(I did this manually in Excel)
 
-
-#4- ############Delete DUPLICATES############################
+#3- ############Delete DUPLICATES (DONE)############################
 print("total rows:", len(data))
 print("Exact duplicate rows:", data.duplicated().sum())
 
-#5-###############Check for missing values within each column##############################################
+#4-###############Check for missing values within each column##############################################
 
 missing_Counts = data.isna().sum()
 missing_Percent = (data.isna().mean()* 100)
@@ -67,23 +60,23 @@ groups = [group["Eng. AH"].values
 print(kruskal(*groups))
 
 ############################Derek 22 missing values test##############################################
-print("\n22 Derek Kruskal Test")
-subset = data.dropna(subset=["22 (Derek Understand when used)", "Eng. AH"])
+# print("\n22 Derek Kruskal Test")
+# subset = data.dropna(subset=["22 (Derek Understand when used)", "Eng. AH"])
 
-groups = [group["Eng. AH"].values
-          for name, group in subset.groupby("22 (Derek Understand when used)")]
+# groups = [group["Eng. AH"].values
+#           for name, group in subset.groupby("22 (Derek Understand when used)")]
 
-print(kruskal(*groups))
+# print(kruskal(*groups))
 
-data["Derek_missing"] = data["22 (Derek Understand when used)"].isna()
+# data["Derek_missing"] = data["22 (Derek Understand when used)"].isna()
 
-subset = data.dropna(subset=["Eng. AH"])
+# subset = data.dropna(subset=["Eng. AH"])
 
-print("\nAre projects with missing values different from projects with non-missing values?")
-groups = [group["Eng. AH"].values
-          for name, group in subset.groupby("Derek_missing")]
+# print("\nAre projects with missing values different from projects with non-missing values?")
+# groups = [group["Eng. AH"].values
+#           for name, group in subset.groupby("Derek_missing")]
 
-print(kruskal(*groups))
+# print(kruskal(*groups))
 
 
 ####################################################################
@@ -99,7 +92,7 @@ df['Eng. AH'] = pd.to_numeric(df['Eng. AH'], errors='coerce')
 df = df.dropna(subset=['Eng. AH'])
 
 # =========================================================
-# TEST 1: ONE-HOT ENCODING (Missing treated as category)
+# TEST 1: ONE-HOT ENCODING (REGION)
 # =========================================================
 print("\n")
 print("Region Encoding Test")
@@ -114,7 +107,7 @@ model_onehot = sm.OLS(df['Eng. AH'].astype(float), X_onehot).fit()
 print("One-Hot Encoding R2:", model_onehot.rsquared)
 
 # =========================================================
-# TEST 2: LABEL ENCODING (Missing treated as category)
+# TEST 2: LABEL ENCODING (REGION)
 # =========================================================
 
 df_label = df.copy()
@@ -128,6 +121,90 @@ X_label = sm.add_constant(df_label[['Region_encoded']].astype(float))
 model_label = sm.OLS(df_label['Eng. AH'].astype(float), X_label).fit()
 print("Label Encoding R2:", model_label.rsquared)
 
+
+#########################################################################
+#################### Nuno cleaning block ################################
+
+model_data = data.copy()
+
+#1 Drop Derek 22 Column
+model_data = model_data.drop(columns=["22 (Derek Understand when used)"], errors="ignore")
+
+if "22 (Derek Understand when used)" not in model_data.columns:
+    print("SUCCESS: Column Deleted")
+else:
+    print("Column still exists")
+
+#2 Use One-Hot Encoding for Region 
+
+model_data["Region"] = model_data["Region"].fillna("Missing")
+region_ohe = pd.get_dummies(model_data["Region"], prefix="Region").astype(int)
+model_data = pd.concat ( [model_data, region_ohe], axis=1)
+model_data = model_data.drop(columns=["Region"])
+model_data = model_data.drop(columns=["Region_Missing"], errors="ignore")
+print(model_data.filter(like="Region").head())
+Region_cols = ["Region_AMERICAS", "Region_ASIA"]
+print(model_data[Region_cols].sum())
+
+#3 Use One-Hot Encoding for Investigation_type
+model_data["Investigation_type"] = model_data["Investigation_type"].fillna("Missing")
+inv_ohe = pd.get_dummies(model_data["Investigation_type"], prefix="Investigation_type").astype(int)
+model_data = pd.concat ( [model_data, inv_ohe], axis=1)
+model_data = model_data.drop(columns=["Investigation_type"])
+model_data = model_data.drop(columns=["Investigation_type_Missing"], errors="ignore")
+print(model_data.filter(like="Investigation_type").head())
+inv_cols = model_data.filter(like="Investigation_type_").columns
+print("\n")
+print(model_data[inv_cols].sum(axis=1).value_counts()) #64 are blank
+model_data = model_data[model_data[inv_cols].sum(axis=1) > 0]
+model_data[inv_cols].sum(axis=1).value_counts()
+
+
+#4 Use One-Hot Encoding for type_of_investigation  
+model_data["type_of_investigation"] = model_data["type_of_investigation"].fillna("Missing")
+TOI_ohe = pd.get_dummies(model_data["type_of_investigation"], prefix="type_of_investigation").astype(int)
+model_data = pd.concat ( [model_data, TOI_ohe], axis=1)
+model_data = model_data.drop(columns=["type_of_investigation"])
+model_data = model_data.drop(columns=["type_of_investigation"], errors="ignore")
+print(model_data.filter(like="type_of_investigation").head())
+TOI_cols = model_data.filter(like="type_of_investigation_").columns
+print(model_data[TOI_cols].sum())
+print("\n")
+print(model_data[TOI_cols].sum(axis=1).value_counts())
+
+
+
+            ################## OLD CODE BELOW #################
+
+
+
+# # ##################################################################
+# #     #1) Load the Excel dataset
+# # ##################################################################
+
+# # 1: Import Libraries
+# from scipy.stats import skew
+# import pandas as pd
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import pandas.api.types as ptypes
+# import warnings
+# import seaborn as sns
+# from pandas.api.types import is_numeric_dtype
+# from scipy.stats import kruskal
+# import statsmodels.api as sm
+# from sklearn.preprocessing import LabelEncoder
+
+
+# warnings.filterwarnings("ignore") # Ignore python warnings
+# pd.set_option('display.max_columns', None) # Settings to print all columns in the dataframe
+# pd.set_option('display.max_rows', None) # Settings to print all rows in the dataframe
+
+# # 2: Download Data
+# data = pd.read_excel("Final_data_Ctech.xlsx")
+# print("Shape:", data.shape) #Prints (rows,columns)
+
+#3-Delete columns we dont need(I did this manually in Excel)
 
 # # ##################################################################
 # #     #2) Gather Intital Information
