@@ -593,10 +593,18 @@ comparison_all = comparison_all.reset_index()
 print(comparison_all.head(20).to_string(index=False))
 
 #######################################################################################################################################################
-
+print("\n\nStage B starts Here\n")
 ###############################
 ########## STAGE B #########
 ###############################
+
+#Checking baseline RMSE (output was -> 0.6383592318262433)
+print("\n\nBaseline RMSE\n")
+y_true = y
+y_pred_baseline = np.mean(y_true)
+baseline_rmse = np.sqrt(np.mean((y_true-y_pred_baseline) ** 2))
+print (baseline_rmse)
+
 X_model = X.copy()
 y_model = y.copy()
 
@@ -665,7 +673,7 @@ print("\n\nTop 20 Features — Stage B Importance:\n")
 print(stageB_importance.head(20).to_string(index=False))
 
 #######################################################################################################################################################
-
+print("\n\nStage C starts Here\n")
 ###############################
 ########## STAGE C #########
 ###############################
@@ -757,6 +765,8 @@ data.shape
 model_data.shape
 X.shape
 X_final.shape
+
+
 
 """
 Finalize feature selection in three stages: Univariate Screening (A), Model-Based Importance with CV (B), and Recursive Feature Elimination with CV (C)
