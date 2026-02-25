@@ -14,118 +14,133 @@ from pandas.api.types import is_numeric_dtype
 from scipy.stats import kruskal
 import statsmodels.api as sm
 from sklearn.preprocessing import LabelEncoder
+from scipy.stats import spearmanr
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
 
 # 2: Download Data
 data = pd.read_excel("Final_data_Ctech.xlsx")
 print("Shape:", data.shape) #Prints (rows,columns)
 
 
-# #3- ############Delete DUPLICATES (DONE)############################
-# print("total rows:", len(data))
-# print("Exact duplicate rows:", data.duplicated().sum())
+#3- ############Delete DUPLICATES (DONE)############################
+print("total rows:", len(data))
+print("Exact duplicate rows:", data.duplicated().sum())
 
-# #4-###############Check for missing values within each column##############################################
+#4-###############Check for missing values within each column##############################################
 
-# missing_Counts = data.isna().sum()
-# missing_Percent = (data.isna().mean()* 100)
+missing_Counts = data.isna().sum()
+missing_Percent = (data.isna().mean()* 100)
 
-# missing_summary = pd.DataFrame({
-#     "Missing_Count": data.isna().sum(),
-#     "Missing_Percent": data.isna().mean() * 100
-# })
+missing_summary = pd.DataFrame({
+    "Missing_Count": data.isna().sum(),
+    "Missing_Percent": data.isna().mean() * 100
+})
 
-# missing_summary = missing_summary.sort_values(
-#     by="Missing_Percent",
-#     ascending=False
-# )
+missing_summary = missing_summary.sort_values(
+    by="Missing_Percent",
+    ascending=False
+)
 
-# print(missing_summary[missing_summary["Missing_Count"] > 0])
+print(missing_summary[missing_summary["Missing_Count"] > 0])
 
-# ############################REGION Missing values test##############################################
-# print("\nRegion Kruskal Test")
-# subset = data.dropna(subset=["Region", "Eng. AH"])
+############################REGION Missing values test##############################################
+print("\nRegion Kruskal Test")
+subset = data.dropna(subset=["Region", "Eng. AH"])
+
+groups = [group["Eng. AH"].values
+          for name, group in subset.groupby("Region")]
+
+print(kruskal(*groups))
+
+############################Investigation Type missing values test##############################################
+print("\nInvestigation type Kruskal Test")
+subset = data.dropna(subset=["Investigation_type", "Eng. AH"])
+
+groups = [group["Eng. AH"].values
+          for name, group in subset.groupby("Investigation_type")]
+
+print(kruskal(*groups))
+
+############################Derek 22 missing values test##############################################
+# print("\n22 Derek Kruskal Test")
+# subset = data.dropna(subset=["22 (Derek Understand when used)", "Eng. AH"])
 
 # groups = [group["Eng. AH"].values
-#           for name, group in subset.groupby("Region")]
+#           for name, group in subset.groupby("22 (Derek Understand when used)")]
 
 # print(kruskal(*groups))
 
-# ############################Investigation Type missing values test##############################################
-# print("\nInvestigation type Kruskal Test")
-# subset = data.dropna(subset=["Investigation_type", "Eng. AH"])
+# data["Derek_missing"] = data["22 (Derek Understand when used)"].isna()
 
+# subset = data.dropna(subset=["Eng. AH"])
+
+# print("\nAre projects with missing values different from projects with non-missing values?")
 # groups = [group["Eng. AH"].values
-#           for name, group in subset.groupby("Investigation_type")]
+#           for name, group in subset.groupby("Derek_missing")]
 
 # print(kruskal(*groups))
 
-# ############################Derek 22 missing values test##############################################
-# # print("\n22 Derek Kruskal Test")
-# # subset = data.dropna(subset=["22 (Derek Understand when used)", "Eng. AH"])
 
-# # groups = [group["Eng. AH"].values
-# #           for name, group in subset.groupby("22 (Derek Understand when used)")]
+####################################################################
+# -----------------------------
+# 0) Clean target (Eng. AH)
+# -----------------------------
+df = data[['Region', 'Eng. AH']].copy()
 
-# # print(kruskal(*groups))
+# Convert Eng. AH to numeric (turns '#N/A' or text into NaN)
+df['Eng. AH'] = pd.to_numeric(df['Eng. AH'], errors='coerce')
 
-# # data["Derek_missing"] = data["22 (Derek Understand when used)"].isna()
+# Drop rows where target is missing after conversion
+df = df.dropna(subset=['Eng. AH'])
 
-# # subset = data.dropna(subset=["Eng. AH"])
+# =========================================================
+# TEST 1: ONE-HOT ENCODING (REGION)
+# =========================================================
+print("\n")
+print("Region Encoding Test")
+X_onehot = pd.get_dummies(df['Region'].fillna('Missing'), drop_first=True)
 
-# # print("\nAre projects with missing values different from projects with non-missing values?")
-# # groups = [group["Eng. AH"].values
-# #           for name, group in subset.groupby("Derek_missing")]
+# Force numeric (important for statsmodels)
+X_onehot = X_onehot.astype(float)
 
-# # print(kruskal(*groups))
+X_onehot = sm.add_constant(X_onehot)
 
+model_onehot = sm.OLS(df['Eng. AH'].astype(float), X_onehot).fit()
+print("One-Hot Encoding R2:", model_onehot.rsquared)
 
-# ####################################################################
-# # -----------------------------
-# # 0) Clean target (Eng. AH)
-# # -----------------------------
-# df = data[['Region', 'Eng. AH']].copy()
+# =========================================================
+# TEST 2: LABEL ENCODING (REGION)
+# =========================================================
 
-# # Convert Eng. AH to numeric (turns '#N/A' or text into NaN)
-# df['Eng. AH'] = pd.to_numeric(df['Eng. AH'], errors='coerce')
+df_label = df.copy()
+df_label['Region'] = df_label['Region'].fillna('Missing')
 
-# # Drop rows where target is missing after conversion
-# df = df.dropna(subset=['Eng. AH'])
+le = LabelEncoder()
+df_label['Region_encoded'] = le.fit_transform(df_label['Region'])
 
-# # =========================================================
-# # TEST 1: ONE-HOT ENCODING (REGION)
-# # =========================================================
-# print("\n")
-# print("Region Encoding Test")
-# X_onehot = pd.get_dummies(df['Region'].fillna('Missing'), drop_first=True)
+X_label = sm.add_constant(df_label[['Region_encoded']].astype(float))
 
-# # Force numeric (important for statsmodels)
-# X_onehot = X_onehot.astype(float)
-
-# X_onehot = sm.add_constant(X_onehot)
-
-# model_onehot = sm.OLS(df['Eng. AH'].astype(float), X_onehot).fit()
-# print("One-Hot Encoding R2:", model_onehot.rsquared)
-
-# # =========================================================
-# # TEST 2: LABEL ENCODING (REGION)
-# # =========================================================
-
-# df_label = df.copy()
-# df_label['Region'] = df_label['Region'].fillna('Missing')
-
-# le = LabelEncoder()
-# df_label['Region_encoded'] = le.fit_transform(df_label['Region'])
-
-# X_label = sm.add_constant(df_label[['Region_encoded']].astype(float))
-
-# model_label = sm.OLS(df_label['Eng. AH'].astype(float), X_label).fit()
-# print("Label Encoding R2:", model_label.rsquared)
+model_label = sm.OLS(df_label['Eng. AH'].astype(float), X_label).fit()
+print("Label Encoding R2:", model_label.rsquared)
 
 
 #########################################################################
 #################### Nuno cleaning block ################################
 
-model_data = data.copy() #Makes a copy of the original data (so you don’t accidentally change the original).
+model_data = data.copy()
+""" Nuno: The following Code shows the thing you should do from the beggining.
+        - "Eng. SH", "Lab. SH", "Lab. AH" droped because they are out of our scope and/or are variables that we will not have in prod to make predictions
+    It is also crucial to remove the duplicated rows.
+    Also, from the Exploratory Data Analysis we saw that we need to log transform the target.
+"""
+#model_data = model_data.drop(columns=["Eng. SH", "Lab. SH", "Lab. AH"])
+model_data = model_data.drop_duplicates()
+model_data["Eng. AH"] = np.log(model_data["Eng. AH"])
 
 #1 Drop Derek 22 Column
 model_data = model_data.drop(columns=["22 (Derek Understand when used)"], errors="ignore")
@@ -136,64 +151,51 @@ else:
     print("Column still exists")
 
 #2 Use One-Hot Encoding for Region 
-
-model_data["Region"] = model_data["Region"].fillna("Missing") 
-#If a row has no Region entry, it gets labeled "Missing".
-region_ohe = pd.get_dummies(model_data["Region"], prefix="Region").astype(int) 
-# Convert the Region column into one‑hot encoded columns
+model_data["Region"] = model_data["Region"].fillna("Missing")
+region_ohe = pd.get_dummies(model_data["Region"], prefix="Region").astype(int)
 model_data = pd.concat ( [model_data, region_ohe], axis=1)
-#Add the new one‑hot columns to the dataset
 model_data = model_data.drop(columns=["Region"])
-#model_data = model_data.drop(columns=["Region"])
 model_data = model_data.drop(columns=["Region_Missing"], errors="ignore")
-#Remove the “Region_Missing” one‑hot column if it exists
 print(model_data.filter(like="Region").head())
-#Show the Region‑related columns
 Region_cols = ["Region_AMERICAS", "Region_ASIA"]
 print(model_data[Region_cols].sum())
-#Count how many rows fall into specific regions
+
+"""
+Nuno: After dealing with Region (15% of missing values), we can drop the missing values from the other columns as they have little cases
+and we can't with certainty handle them. There are approaches to handle them but we will just delete them in this case.
+"""
+model_data = model_data.dropna()
 
 #3 Use One-Hot Encoding for Investigation_type
-model_data["Investigation_type"] = model_data["Investigation_type"].fillna("Missing") 
-#If Investigation_type is NaN, replace it with "Missing"
+model_data["Investigation_type"] = model_data["Investigation_type"].fillna("Missing")
 inv_ohe = pd.get_dummies(model_data["Investigation_type"], prefix="Investigation_type").astype(int)
-#Create one 0/1 column per category of Investigation_type.
 model_data = pd.concat ( [model_data, inv_ohe], axis=1)
 model_data = model_data.drop(columns=["Investigation_type"])
-#Add the new one‑hot columns; remove the original text column.
-model_data = model_data.drop(columns=["Investigation_type_Missing"], errors="ignore")
-#Remove the “Missing” indicator column if present (to avoid a redundant dummy).
+#model_data = model_data.drop(columns=["Investigation_type_Missing"], errors="ignore")
 print(model_data.filter(like="Investigation_type").head())
-#Show a sample of the new one‑hot columns.
-#Identify the one-hot columns for Investigation_type
 inv_cols = model_data.filter(like="Investigation_type_").columns
 print("\n")
-# Row-wise sum across one-hot columns: 1 = valid, 0 = blank
-print(model_data[inv_cols].sum(axis=1).value_counts())
-# Drop rows where all Investigation_type dummies are 0 (blank)
-model_data = model_data[model_data[inv_cols].sum(axis=1) > 0]
-# (Optional) Now drop the “Missing” dummy to avoid redundancy in models
-model_data = model_data.drop(columns=["Investigation_type_Missing"], errors="ignore")
-
-
+print(model_data[inv_cols].sum(axis=1).value_counts()) #64 missing values, dropping it
+model_data = model_data[model_data[inv_cols].sum(axis=1) > 0] #Drop blank Cells
+model_data[inv_cols].sum(axis=1).value_counts() #Confirm it worked
 
 #4 Use One-Hot Encoding for type_of_investigation  
 model_data["type_of_investigation"] = model_data["type_of_investigation"].fillna("Missing")
 TOI_ohe = pd.get_dummies(model_data["type_of_investigation"], prefix="type_of_investigation").astype(int)
 model_data = pd.concat ( [model_data, TOI_ohe], axis=1)
 model_data = model_data.drop(columns=["type_of_investigation"], errors="ignore")
+#model_data = model_data.drop(columns=["type_of_investigation_Missing"]) 
 print(model_data.filter(like="type_of_investigation").head())
 TOI_cols = model_data.filter(like="type_of_investigation_").columns
 print(model_data[TOI_cols].sum())
 print("\n")
 print(model_data[TOI_cols].sum(axis=1).value_counts())
 
-
 #5 Converting counts into meaningful features
 
 #total_CB_count -> binary (0/1)
 model_data["total_CB_count"] = pd.to_numeric(model_data["total_CB_count"], errors="coerce")
-model_data["total_CB_count"] = (model_data["total_CB_count"].fillna(0) > 0).astype(int)
+model_data["total_CB_count_Binary"] = (model_data["total_CB_count"].fillna(0) > 0).astype(int)
 
 #total_test_count_Binary -> binary (0/1)
 model_data["total_test_count"] = pd.to_numeric(model_data["total_test_count"], errors="coerce")
@@ -201,7 +203,8 @@ model_data["total_test_count_Binary"] = (model_data["total_test_count"].fillna(0
 
 #standard_count -> int
 model_data["standard_count"] = pd.to_numeric(model_data["standard_count"], errors="coerce")
-model_data["standard_count"] = model_data["standard_count"].fillna(0).astype(int)
+model_data["standard_count_Binary"] = model_data["standard_count"].fillna(0).astype(int)
+
 
 #CCN_Data Hub Top 10 + OTHER + OHE
 TOPK = 10
@@ -226,8 +229,9 @@ model_data = model_data.drop(columns=[HUB_COL, "CCN_Hub_top10"], errors="ignore"
 print(" Step 5 complete")
 
 #Quick Check (binary columns)
-print(model_data["total_CB_count"].value_counts())
+print(model_data["total_CB_count_Binary"].value_counts())
 print(model_data["total_test_count_Binary"].value_counts())
+print(model_data["standard_count_Binary"].value_counts())
 
 
 #Check CCN Top10 columns
@@ -235,10 +239,7 @@ print([c for c in model_data.columns if c.startswith("CCN_Top10_")])
 print(model_data.shape)
 print("\n")
 
-
 # STEP 6: Drop columns with only one unique value
-
-
 single_value_cols = []
 
 for col in model_data.columns:
@@ -249,9 +250,13 @@ for col in model_data.columns:
 
 print("\nTotal columns to drop:", len(single_value_cols)) #four of them
 
+"""
+Drop columns with just one value
+"""
+model_data = model_data.drop(columns=single_value_cols, errors="ignore")
 
 #Columns where 90% or more share the same value
-THRESH = 0.90  # 90%
+THRESH = 0.95  # 90%
 
 results = []
 
@@ -286,6 +291,84 @@ else:
 results_df.to_excel("near_constant_columns_90pct.xlsx", index=False)
 print("\nSaved: near_constant_columns_90pct.xlsx")
 
+# Check unbalanced columns
+print("\n==================================================")
+print("Check unbalanced columns")
+print("====================================================\n")
+
+rows = []
+candidates = []
+for c in model_data.columns:
+    if c == "Eng. AH":
+        continue
+    s = model_data[c]
+    if pd.api.types.is_bool_dtype(s):
+        candidates.append(c)
+    elif pd.api.types.is_numeric_dtype(s):
+        u = pd.unique(s.dropna())
+        if set(u).issubset({0,1}):
+            candidates.append(c)
+for c in candidates:
+    s = model_data[c].astype(float)
+    n = int(s.notna().sum())
+    if n == 0:
+        continue
+    p1 = 100.0 * s.mean()
+    p0 = 100.0 - p1
+    near_constant = (p1 >= 95.0) or (p1 <= 5.0)
+    if not near_constant:
+        continue
+    mask1 = (s == 1)
+    mask0 = (s == 0)
+    y1 = model_data.loc[mask1, "Eng. AH"].dropna().values
+    y0 = model_data.loc[mask0, "Eng. AH"].dropna().values
+    n1 = len(y1)
+    n0 = len(y0)
+    if n1 == 0 or n0 == 0:
+        decision = "Drop"
+        print(f"{decision:4s}  {c:40s}  %1={p1:6.2f}%   n1={n1:4d}   n0={n0:4d}   (no data in one group)")
+        rows.append({
+            "column": c, "%1": p1, "n1": n1, "n0": n0,
+            "delta_mean_h": np.nan, "delta_median_h": np.nan,
+            "p_mw": np.nan, "decision": decision
+        })
+        continue
+    mean1 = np.mean(y1)
+    mean0 = np.mean(y0)
+    med1  = np.median(y1)
+    med0  = np.median(y0)
+    delta_mean   = mean1 - mean0
+    delta_median = med1 - med0
+    try:
+        u_stat, p_mw = mannwhitneyu(y1, y0, alternative="two-sided")
+    except Exception:
+        p_mw = np.nan    
+    if (n1 >= 20) and (abs(delta_mean) >= 0.20 or (not np.isnan(p_mw) and p_mw < 0.05)):
+        decision = "Keep"
+    else:
+        decision = "Drop"
+    print(f"{decision:4s}  {c:40s}  %1={p1:6.2f}%   n1={n1:4d}   "
+          f"Δmean={delta_mean:+6.2f}h   Δmedian={delta_median:+6.2f}h   p(MW)={p_mw:.2e}")
+    rows.append({
+        "column": c, "%1": p1, "n1": n1, "n0": n0,
+        "delta_mean_h": delta_mean, "delta_median_h": delta_median,
+        "p_mw": p_mw, "decision": decision
+    })
+decisions = (
+    pd.DataFrame(rows)
+    .sort_values(["decision","%1"], ascending=[True, True])
+    .reset_index(drop=True)
+)
+print("\nSummary of near-constant binary columns:")
+print(decisions)
+
+"""
+The first test only checks whether a column is almost constant (e.g., 99% of values are the same). This tells you the column has very low variability,
+but it does not tell you whether the rare cases actually have an impact on the target. The second test is better because it goes further: it checks not
+only the imbalance but also the sample size in the minority group and the real effect of the feature on the target (difference in means/medians and
+statistical significance). This means we only keep rare flags that actually change the target in a meaningful way, and we drop the ones that are
+rare and useless, improving model quality and reducing noise.
+"""
 
 #^^^^^^^^^^^^^^^^^^^^^ I DID NOT DROP ANY COLUMNS YET IN THIS STEP, UNTIL YOU LET ME KNOW WHAT YOU THINK!
 
@@ -294,11 +377,122 @@ print("\nSaved: near_constant_columns_90pct.xlsx")
 # print("New shape after dropping:", model_data.shape)
 
 
+drop_cols = [
+    "UL", "cUL", "CCC", "KC", "PSE", "NOM",
+    "CCN_Top10_AAAL", "CCN_Top10_AAAU", "CCN_Top10_NWIN",
+    "CCN_Top10_OTHER", "CCN_Top10_QQGQ2",
+    "total_schemmes",
+    "uncertified_pwr_supply", "preliminary_review", "7 (950 TO 368)",
+    "IT Informational Test Report", "touch_current_test", "all_mount_test",
+    "enclosure_push_test", "energy_hazard_test", "water_spray_test",
+    "thin_material_test", "stability_test", "strain_relief_test", "dust_test",
+    "varistor_overload_test", "102 (LFC)",
+    "103 (L R Over DC Mot in Sec Cir)", "moment_test",
+    "Test- Bridging Resistor Test", "Test- Tensile Strength",
+    "Test- Secondary Working Voltage", "outdoor_use", "PoE_source", "PoE_load",
+    "multilayer_boards", "unknown_PWR_supply",
+    "\n33 (Rename)",
+    "alter_transformer", "alter_capacitor", "alter_layout", "alter_insulation",
+    "alter_optical_isolator", "alter_inductor", "alter_resistor", "alter_movs",
+    "alter_LPS", "alter_connector", "alter_app_inlet", "alter_relay",
+    "alter_cord", "alter_current_ic", "alter_strain_relief", "alter_ptc",
+    "alter_display", "alter_interconnect", "alter_light",
+    "Investigation_type_4 - DC Distribution Panels",
+    "type_of_investigation_5 - Administrative CB review"
+]
+model_data = model_data.drop(columns=drop_cols, errors="ignore")
 
 
+drop_cols = ["9 (Talk to Derek)","4 (Annex Y)","11 (Ask Derek if  IEC/EN 62368-3  covers this)","34 (may be duplicate - check)",
+             "30 (Talk to Derek)"," 20 (Iteration of Tests ASK Derek)","29 (Talk to Derek)","27 (Change Enc Func)"]
+model_data = model_data.drop(columns=drop_cols, errors="ignore")
+print("Number of unique values (per column):")
+print(model_data.nunique(), "\n")
 
 
+# Check multicollinearity
+print("\n==================================================")
+print("Check multicollinearity")
+print("====================================================\n")
 
+bin_cols = []
+for c in model_data.columns:
+    if c == "Eng. AH":
+        continue
+    s = model_data[c]
+    if pd.api.types.is_bool_dtype(s):
+        bin_cols.append(c)
+    elif pd.api.types.is_numeric_dtype(s):
+        u = pd.unique(s.dropna())
+        if set(u).issubset({0,1}):
+            bin_cols.append(c)
+if len(bin_cols) > 1:
+    corr = model_data[bin_cols].corr(method="spearman").abs()
+
+    high_pairs = []
+    for i, a in enumerate(bin_cols):
+        for j, b in enumerate(bin_cols):
+            if j <= i:
+                continue
+            if corr.loc[a, b] >= 0.90:
+                high_pairs.append((a, b, corr.loc[a, b]))
+
+    if high_pairs:
+        print("Highly redundant (>=0.90):")
+        for a,b,v in high_pairs:
+            print(f"{a} ~ {b}: {v:.2f}")
+    else:
+        print("No redundant binary pairs found (>=0.90).")
+else:
+    print("Not enough binary columns to compute correlations.")
+
+model_data = model_data.drop(columns=["total_CB_count_Binary", "_60950_1_2ed_A2", "capacitance_discharge_test"], errors="ignore")
+model_data = model_data.drop_duplicates()
+
+
+# # Compare touch_current_single_test & capacitance_discharge_test correlation with Eng. AH
+# touch_corr = abs(spearmanr(
+#     model_data["\ntouch_current_single_test"],
+#     model_data["Eng. AH"]
+# )[0])
+
+# cap_corr = abs(spearmanr(
+#     model_data["capacitance_discharge_test"],
+#     model_data["Eng. AH"]
+# )[0])
+
+# print(f"Touch Current vs Eng AH: {touch_corr:.4f}")
+# print(f"Capacitance Discharge vs Eng AH: {cap_corr:.4f}")
+# #touch_current_single_test is slightly stronger
+
+###############################
+########## Next Steps #########
+###############################
+"""
+Finalize feature selection in three stages: Univariate Screening (A), Model-Based Importance with CV (B), and Recursive Feature Elimination with CV (C)
+to keep only features that truly improve predictive performance on our log-transformed target.
+
+This ensures we:
+ - remove noise and redundancy,
+ - avoid overfitting,
+ - and keep a compact, high-signal feature set for XGBoost/LightGBM/RF.
+
+
+What to do next (high level)
+     - Stage A — Univariate Screening
+         - Quickly rank features by Mutual Information, Spearman correlation, and shallow tree importance to identify obvious weak/strong candidates.
+
+     - Stage B — Model-Based Importance with CV
+         - Train a tree-based model (XGBRegressor) with K-Fold cross-validation, and compute both gain importance and permutation importance on validation folds.
+         This gives a robust, model-agnostic view of which features matter.
+
+    - Stage C — RFECV (Recursive Feature Elimination with CV)
+         - Use RFECV with the same tree model to find the smallest feature set that preserves (or improves) cross-validated RMSE on the log target.
+
+We’ve already cleaned, encoded, removed near-constant and redundant features, and handled high-cardinality categoricals.
+Now we need evidence-based feature selection to reduce dimensionality and improve generalization.
+Univariate = fast signal check; Model-based = captures interactions and non-linearities; RFECV = builds a minimal yet strong feature set.
+"""
 
 
 
