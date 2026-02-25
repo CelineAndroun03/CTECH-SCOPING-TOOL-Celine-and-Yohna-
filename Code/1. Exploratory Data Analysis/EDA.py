@@ -6,6 +6,9 @@
 from scipy.stats import skew
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error
+from sklearn.inspection import permutation_importance
 import matplotlib.pyplot as plt
 import pandas.api.types as ptypes
 import warnings
@@ -14,9 +17,14 @@ from pandas.api.types import is_numeric_dtype
 from scipy.stats import kruskal
 import statsmodels.api as sm
 from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_selection import mutual_info_regression
+from xgboost import XGBRegressor
+from sklearn.tree import DecisionTreeRegressor
 from scipy.stats import spearmanr
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from sklearn.feature_selection import RFECV
+from sklearn.metrics import mean_squared_error, make_scorer
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 pd.set_option("display.max_columns", None)
@@ -468,6 +476,288 @@ model_data = model_data.drop_duplicates()
 ###############################
 ########## Next Steps #########
 ###############################
+
+
+
+###############################
+########## STAGE A #########
+###############################
+
+#PART 1: MUTUAL INFORMATION
+
+target = "Eng. AH"
+
+# Separate X and y
+y = model_data[target].astype(float)
+X = model_data.drop(columns=[target], errors="ignore")
+
+# Keep only numeric columns (important)
+X = X.select_dtypes(include=[np.number]).copy()
+
+# Fill any remaining NaNs just in case
+X = X.fillna(0)
+
+# Compute Mutual Information
+mi_scores = mutual_info_regression(X, y, random_state=42)
+
+# Put into DataFrame
+mi_df = pd.DataFrame({
+    "Feature": X.columns,
+    "MI_Score": mi_scores
+})
+
+# Sort highest first
+mi_df = mi_df.sort_values("MI_Score", ascending=False)
+print("\nTop 20 Features by Mutual Information:\n")
+print(mi_df.head(20))
+
+#PART 2: Spearman Correlation
+# Compute Spearman correlation for each feature vs target
+spearman_scores = X.apply(lambda col: col.corr(y, method="spearman"))
+
+# Take absolute value (we care about strength, not direction yet)
+spearman_df = pd.DataFrame({
+    "Feature": spearman_scores.index,
+    "Spearman": spearman_scores.values
+})
+
+spearman_df["Abs_Spearman"] = spearman_df["Spearman"].abs()
+
+# Sort by absolute strength
+spearman_df = spearman_df.sort_values("Abs_Spearman", ascending=False)
+
+print("Top 20 Features by Spearman:\n")
+print(spearman_df.head(20))
+
+
+#PART 3: Shallow Tree Importance
+# Use same X and y from earlier
+tree = DecisionTreeRegressor(
+    max_depth=3,     # shallow = simple model
+    random_state=42
+)
+
+tree.fit(X, y)
+
+# Get importance scores
+tree_importance = pd.DataFrame({
+    "Feature": X.columns,
+    "Tree_Importance": tree.feature_importances_
+})
+
+# Sort highest first
+tree_importance = tree_importance.sort_values(
+    "Tree_Importance",
+    ascending=False
+)
+
+print("Top 20 Features by Shallow Tree:\n")
+print(tree_importance.head(20))
+
+#PART 4(EXTRA STEP): COMPARE ALL 3
+
+print("\n==================================================")
+print("Top 20 Features (MI + Spearman + Tree aligned)")
+print("====================================================\n")
+
+# Set Feature as index for safe alignment
+mi_tmp = mi_df.set_index("Feature")
+sp_tmp = spearman_df.set_index("Feature")
+tree_tmp = tree_importance.set_index("Feature")
+
+# Combine all into one table
+comparison_all = pd.concat(
+    [
+        mi_tmp["MI_Score"],
+        sp_tmp["Spearman"],
+        sp_tmp["Abs_Spearman"],
+        tree_tmp["Tree_Importance"]
+    ],
+    axis=1
+)
+
+# Optional normalization
+comparison_all["MI_Normalized"] = (
+    comparison_all["MI_Score"] /
+    comparison_all["MI_Score"].max()
+)
+
+comparison_all["Tree_Normalized"] = (
+    comparison_all["Tree_Importance"] /
+    (comparison_all["Tree_Importance"].max() if comparison_all["Tree_Importance"].max() > 0 else 1)
+)
+
+# Sort by MI (or change if you prefer)
+comparison_all = comparison_all.sort_values(
+    by=["MI_Score", "Abs_Spearman", "Tree_Importance"],
+    ascending=False
+)
+
+# Reset index so Feature becomes a column again
+comparison_all = comparison_all.reset_index()
+
+# Clean print
+print(comparison_all.head(20).to_string(index=False))
+
+
+###############################
+########## STAGE B #########
+###############################
+X_model = X.copy()
+y_model = y.copy()
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+rmse_scores = []
+gain_importance_accumulator = np.zeros(X_model.shape[1])
+perm_importance_accumulator = np.zeros(X_model.shape[1])
+
+for fold, (train_idx, val_idx) in enumerate(kf.split(X_model)):
+    
+    X_train, X_val = X_model.iloc[train_idx], X_model.iloc[val_idx]
+    y_train, y_val = y_model.iloc[train_idx], y_model.iloc[val_idx]
+    
+    model = XGBRegressor(
+        n_estimators=300,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        n_jobs=-1
+    )
+    
+    model.fit(X_train, y_train)
+    
+    # Predict
+    y_pred = model.predict(X_val)
+    rmse = np.sqrt(mean_squared_error(y_val, y_pred))
+    rmse_scores.append(rmse)
+    
+    # Gain importance
+    gain_importance_accumulator += model.feature_importances_
+    
+    # Permutation importance
+    perm = permutation_importance(
+        model,
+        X_val,
+        y_val,
+        n_repeats=5,
+        random_state=42,
+        scoring="neg_root_mean_squared_error"
+    )
+    
+    perm_importance_accumulator += perm.importances_mean
+
+# Average results
+avg_rmse = np.mean(rmse_scores)
+avg_gain_importance = gain_importance_accumulator / 5
+avg_perm_importance = perm_importance_accumulator / 5
+
+print(f"\nCross-Validated RMSE: {avg_rmse:.4f}")
+
+stageB_importance = pd.DataFrame({
+    "Feature": X_model.columns,
+    "Gain_Importance": avg_gain_importance,
+    "Permutation_Importance": avg_perm_importance
+})
+
+stageB_importance = stageB_importance.sort_values(
+    "Permutation_Importance",
+    ascending=False
+)
+
+print("\nTop 20 Features — Stage B Importance:\n")
+print(stageB_importance.head(20).to_string(index=False))
+
+
+###############################
+########## STAGE C #########
+###############################
+# --- Safety checks ---
+if "Eng. AH" in X.columns:
+    X = X.drop(columns=["Eng. AH"], errors="ignore")
+
+# Make sure everything is numeric
+X = X.select_dtypes(include=[np.number]).copy()
+X = X.fillna(0)
+
+# Ensure y is numeric
+y = y.astype(float)
+
+print("RFECV input shapes:")
+print("X:", X.shape)
+print("y:", y.shape)
+
+# --- CV setup ---
+cv = KFold(n_splits=5, shuffle=True, random_state=42)
+
+# --- Model (keep it light for speed) ---
+xgb_model = XGBRegressor(
+    n_estimators=300,
+    max_depth=4,
+    learning_rate=0.05,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    reg_alpha=0.0,
+    reg_lambda=1.0,
+    random_state=42,
+    n_jobs=-1
+)
+
+# --- RMSE scorer (RFECV needs a "higher is better" scorer, so we use negative RMSE) ---
+def rmse(y_true, y_pred):
+    return np.sqrt(mean_squared_error(y_true, y_pred))
+
+rmse_scorer = make_scorer(rmse, greater_is_better=False)
+
+# --- RFECV ---
+rfecv = RFECV(
+    estimator=xgb_model,
+    step=1,                 # remove 1 feature at a time (best for small feature sets like yours)
+    cv=cv,
+    scoring=rmse_scorer,
+    min_features_to_select=3,
+    n_jobs=-1
+)
+
+rfecv.fit(X, y)
+
+# --- Results ---
+support_mask = rfecv.support_
+selected_features = X.columns[support_mask].tolist()
+ranking = rfecv.ranking_
+
+print("\nRFECV finished")
+print("Best number of features:", rfecv.n_features_)
+print("Selected features:\n", selected_features)
+
+# --- Create a clean results table ---
+rfecv_results = pd.DataFrame({
+    "Feature": X.columns,
+    "Selected": support_mask,
+    "Rank": ranking
+}).sort_values(["Selected", "Rank"], ascending=[False, True])
+
+print("\nTop selected features (ranked):")
+print(rfecv_results[rfecv_results["Selected"] == True].to_string(index=False))
+
+print("\nDropped features (ranked):")
+print(rfecv_results[rfecv_results["Selected"] == False].head(30).to_string(index=False))
+
+# --- Build final dataset for modeling ---
+X_final = X[selected_features].copy()
+
+print("\nFinal modeling matrix:")
+print("X_final shape:", X_final.shape)
+print("y shape:", y.shape)
+
+# Optional: save for proof + sharing
+rfecv_results.to_excel("rfecv_feature_ranking.xlsx", index=False)
+print("\nSaved: rfecv_feature_ranking.xlsx")
+
+
+
 """
 Finalize feature selection in three stages: Univariate Screening (A), Model-Based Importance with CV (B), and Recursive Feature Elimination with CV (C)
 to keep only features that truly improve predictive performance on our log-transformed target.
