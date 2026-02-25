@@ -519,7 +519,7 @@ spearman_df["Abs_Spearman"] = spearman_df["Spearman"].abs()
 # Sort by absolute strength
 spearman_df = spearman_df.sort_values("Abs_Spearman", ascending=False)
 
-print("Top 20 Features by Spearman:\n")
+print("\n\nTop 20 Features by Spearman:\n")
 print(spearman_df.head(20))
 
 
@@ -544,12 +544,12 @@ tree_importance = tree_importance.sort_values(
     ascending=False
 )
 
-print("Top 20 Features by Shallow Tree:\n")
+print("\n\nTop 20 Features by Shallow Tree:\n")
 print(tree_importance.head(20))
 
 #PART 4(EXTRA STEP): COMPARE ALL 3
 
-print("\n==================================================")
+print("\n\n==================================================")
 print("Top 20 Features (MI + Spearman + Tree aligned)")
 print("====================================================\n")
 
@@ -661,7 +661,7 @@ stageB_importance = stageB_importance.sort_values(
     ascending=False
 )
 
-print("\nTop 20 Features — Stage B Importance:\n")
+print("\n\nTop 20 Features — Stage B Importance:\n")
 print(stageB_importance.head(20).to_string(index=False))
 
 #######################################################################################################################################################
@@ -723,7 +723,7 @@ support_mask = rfecv.support_
 selected_features = X.columns[support_mask].tolist()
 ranking = rfecv.ranking_
 
-print("\nRFECV finished")
+print("\n\nRFECV finished")
 print("Best number of features:", rfecv.n_features_)
 print("Selected features:\n", selected_features)
 
