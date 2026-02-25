@@ -20,112 +20,112 @@ data = pd.read_excel("Final_data_Ctech.xlsx")
 print("Shape:", data.shape) #Prints (rows,columns)
 
 
-#3- ############Delete DUPLICATES (DONE)############################
-print("total rows:", len(data))
-print("Exact duplicate rows:", data.duplicated().sum())
+# #3- ############Delete DUPLICATES (DONE)############################
+# print("total rows:", len(data))
+# print("Exact duplicate rows:", data.duplicated().sum())
 
-#4-###############Check for missing values within each column##############################################
+# #4-###############Check for missing values within each column##############################################
 
-missing_Counts = data.isna().sum()
-missing_Percent = (data.isna().mean()* 100)
+# missing_Counts = data.isna().sum()
+# missing_Percent = (data.isna().mean()* 100)
 
-missing_summary = pd.DataFrame({
-    "Missing_Count": data.isna().sum(),
-    "Missing_Percent": data.isna().mean() * 100
-})
+# missing_summary = pd.DataFrame({
+#     "Missing_Count": data.isna().sum(),
+#     "Missing_Percent": data.isna().mean() * 100
+# })
 
-missing_summary = missing_summary.sort_values(
-    by="Missing_Percent",
-    ascending=False
-)
+# missing_summary = missing_summary.sort_values(
+#     by="Missing_Percent",
+#     ascending=False
+# )
 
-print(missing_summary[missing_summary["Missing_Count"] > 0])
+# print(missing_summary[missing_summary["Missing_Count"] > 0])
 
-############################REGION Missing values test##############################################
-print("\nRegion Kruskal Test")
-subset = data.dropna(subset=["Region", "Eng. AH"])
-
-groups = [group["Eng. AH"].values
-          for name, group in subset.groupby("Region")]
-
-print(kruskal(*groups))
-
-############################Investigation Type missing values test##############################################
-print("\nInvestigation type Kruskal Test")
-subset = data.dropna(subset=["Investigation_type", "Eng. AH"])
-
-groups = [group["Eng. AH"].values
-          for name, group in subset.groupby("Investigation_type")]
-
-print(kruskal(*groups))
-
-############################Derek 22 missing values test##############################################
-# print("\n22 Derek Kruskal Test")
-# subset = data.dropna(subset=["22 (Derek Understand when used)", "Eng. AH"])
+# ############################REGION Missing values test##############################################
+# print("\nRegion Kruskal Test")
+# subset = data.dropna(subset=["Region", "Eng. AH"])
 
 # groups = [group["Eng. AH"].values
-#           for name, group in subset.groupby("22 (Derek Understand when used)")]
+#           for name, group in subset.groupby("Region")]
 
 # print(kruskal(*groups))
 
-# data["Derek_missing"] = data["22 (Derek Understand when used)"].isna()
+# ############################Investigation Type missing values test##############################################
+# print("\nInvestigation type Kruskal Test")
+# subset = data.dropna(subset=["Investigation_type", "Eng. AH"])
 
-# subset = data.dropna(subset=["Eng. AH"])
-
-# print("\nAre projects with missing values different from projects with non-missing values?")
 # groups = [group["Eng. AH"].values
-#           for name, group in subset.groupby("Derek_missing")]
+#           for name, group in subset.groupby("Investigation_type")]
 
 # print(kruskal(*groups))
 
+# ############################Derek 22 missing values test##############################################
+# # print("\n22 Derek Kruskal Test")
+# # subset = data.dropna(subset=["22 (Derek Understand when used)", "Eng. AH"])
 
-####################################################################
-# -----------------------------
-# 0) Clean target (Eng. AH)
-# -----------------------------
-df = data[['Region', 'Eng. AH']].copy()
+# # groups = [group["Eng. AH"].values
+# #           for name, group in subset.groupby("22 (Derek Understand when used)")]
 
-# Convert Eng. AH to numeric (turns '#N/A' or text into NaN)
-df['Eng. AH'] = pd.to_numeric(df['Eng. AH'], errors='coerce')
+# # print(kruskal(*groups))
 
-# Drop rows where target is missing after conversion
-df = df.dropna(subset=['Eng. AH'])
+# # data["Derek_missing"] = data["22 (Derek Understand when used)"].isna()
 
-# =========================================================
-# TEST 1: ONE-HOT ENCODING (REGION)
-# =========================================================
-print("\n")
-print("Region Encoding Test")
-X_onehot = pd.get_dummies(df['Region'].fillna('Missing'), drop_first=True)
+# # subset = data.dropna(subset=["Eng. AH"])
 
-# Force numeric (important for statsmodels)
-X_onehot = X_onehot.astype(float)
+# # print("\nAre projects with missing values different from projects with non-missing values?")
+# # groups = [group["Eng. AH"].values
+# #           for name, group in subset.groupby("Derek_missing")]
 
-X_onehot = sm.add_constant(X_onehot)
+# # print(kruskal(*groups))
 
-model_onehot = sm.OLS(df['Eng. AH'].astype(float), X_onehot).fit()
-print("One-Hot Encoding R2:", model_onehot.rsquared)
 
-# =========================================================
-# TEST 2: LABEL ENCODING (REGION)
-# =========================================================
+# ####################################################################
+# # -----------------------------
+# # 0) Clean target (Eng. AH)
+# # -----------------------------
+# df = data[['Region', 'Eng. AH']].copy()
 
-df_label = df.copy()
-df_label['Region'] = df_label['Region'].fillna('Missing')
+# # Convert Eng. AH to numeric (turns '#N/A' or text into NaN)
+# df['Eng. AH'] = pd.to_numeric(df['Eng. AH'], errors='coerce')
 
-le = LabelEncoder()
-df_label['Region_encoded'] = le.fit_transform(df_label['Region'])
+# # Drop rows where target is missing after conversion
+# df = df.dropna(subset=['Eng. AH'])
 
-X_label = sm.add_constant(df_label[['Region_encoded']].astype(float))
+# # =========================================================
+# # TEST 1: ONE-HOT ENCODING (REGION)
+# # =========================================================
+# print("\n")
+# print("Region Encoding Test")
+# X_onehot = pd.get_dummies(df['Region'].fillna('Missing'), drop_first=True)
 
-model_label = sm.OLS(df_label['Eng. AH'].astype(float), X_label).fit()
-print("Label Encoding R2:", model_label.rsquared)
+# # Force numeric (important for statsmodels)
+# X_onehot = X_onehot.astype(float)
+
+# X_onehot = sm.add_constant(X_onehot)
+
+# model_onehot = sm.OLS(df['Eng. AH'].astype(float), X_onehot).fit()
+# print("One-Hot Encoding R2:", model_onehot.rsquared)
+
+# # =========================================================
+# # TEST 2: LABEL ENCODING (REGION)
+# # =========================================================
+
+# df_label = df.copy()
+# df_label['Region'] = df_label['Region'].fillna('Missing')
+
+# le = LabelEncoder()
+# df_label['Region_encoded'] = le.fit_transform(df_label['Region'])
+
+# X_label = sm.add_constant(df_label[['Region_encoded']].astype(float))
+
+# model_label = sm.OLS(df_label['Eng. AH'].astype(float), X_label).fit()
+# print("Label Encoding R2:", model_label.rsquared)
 
 
 #########################################################################
 #################### Nuno cleaning block ################################
 
-model_data = data.copy()
+model_data = data.copy() #Makes a copy of the original data (so you don’t accidentally change the original).
 
 #1 Drop Derek 22 Column
 model_data = model_data.drop(columns=["22 (Derek Understand when used)"], errors="ignore")
@@ -137,27 +137,44 @@ else:
 
 #2 Use One-Hot Encoding for Region 
 
-model_data["Region"] = model_data["Region"].fillna("Missing")
-region_ohe = pd.get_dummies(model_data["Region"], prefix="Region").astype(int)
+model_data["Region"] = model_data["Region"].fillna("Missing") 
+#If a row has no Region entry, it gets labeled "Missing".
+region_ohe = pd.get_dummies(model_data["Region"], prefix="Region").astype(int) 
+# Convert the Region column into one‑hot encoded columns
 model_data = pd.concat ( [model_data, region_ohe], axis=1)
+#Add the new one‑hot columns to the dataset
 model_data = model_data.drop(columns=["Region"])
+#model_data = model_data.drop(columns=["Region"])
 model_data = model_data.drop(columns=["Region_Missing"], errors="ignore")
+#Remove the “Region_Missing” one‑hot column if it exists
 print(model_data.filter(like="Region").head())
+#Show the Region‑related columns
 Region_cols = ["Region_AMERICAS", "Region_ASIA"]
 print(model_data[Region_cols].sum())
+#Count how many rows fall into specific regions
 
 #3 Use One-Hot Encoding for Investigation_type
-model_data["Investigation_type"] = model_data["Investigation_type"].fillna("Missing")
+model_data["Investigation_type"] = model_data["Investigation_type"].fillna("Missing") 
+#If Investigation_type is NaN, replace it with "Missing"
 inv_ohe = pd.get_dummies(model_data["Investigation_type"], prefix="Investigation_type").astype(int)
+#Create one 0/1 column per category of Investigation_type.
 model_data = pd.concat ( [model_data, inv_ohe], axis=1)
 model_data = model_data.drop(columns=["Investigation_type"])
+#Add the new one‑hot columns; remove the original text column.
 model_data = model_data.drop(columns=["Investigation_type_Missing"], errors="ignore")
+#Remove the “Missing” indicator column if present (to avoid a redundant dummy).
 print(model_data.filter(like="Investigation_type").head())
+#Show a sample of the new one‑hot columns.
+#Identify the one-hot columns for Investigation_type
 inv_cols = model_data.filter(like="Investigation_type_").columns
 print("\n")
-print(model_data[inv_cols].sum(axis=1).value_counts()) #64 missing values, dropping it
-model_data = model_data[model_data[inv_cols].sum(axis=1) > 0] #Drop blank Cells
-model_data[inv_cols].sum(axis=1).value_counts() #Confirm it worked
+# Row-wise sum across one-hot columns: 1 = valid, 0 = blank
+print(model_data[inv_cols].sum(axis=1).value_counts())
+# Drop rows where all Investigation_type dummies are 0 (blank)
+model_data = model_data[model_data[inv_cols].sum(axis=1) > 0]
+# (Optional) Now drop the “Missing” dummy to avoid redundancy in models
+model_data = model_data.drop(columns=["Investigation_type_Missing"], errors="ignore")
+
 
 
 #4 Use One-Hot Encoding for type_of_investigation  
@@ -165,7 +182,6 @@ model_data["type_of_investigation"] = model_data["type_of_investigation"].fillna
 TOI_ohe = pd.get_dummies(model_data["type_of_investigation"], prefix="type_of_investigation").astype(int)
 model_data = pd.concat ( [model_data, TOI_ohe], axis=1)
 model_data = model_data.drop(columns=["type_of_investigation"], errors="ignore")
-model_data = model_data.drop(columns=["type_of_investigation_Missing"]) 
 print(model_data.filter(like="type_of_investigation").head())
 TOI_cols = model_data.filter(like="type_of_investigation_").columns
 print(model_data[TOI_cols].sum())
