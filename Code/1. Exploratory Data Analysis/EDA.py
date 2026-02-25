@@ -15,6 +15,7 @@ import warnings
 import seaborn as sns
 from pandas.api.types import is_numeric_dtype
 from scipy.stats import kruskal
+from scipy.stats import mannwhitneyu
 import statsmodels.api as sm
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_selection import mutual_info_regression
@@ -296,8 +297,8 @@ else:
     print("None found.")
 
 # Optional: save to Excel for easy filtering
-results_df.to_excel("near_constant_columns_90pct.xlsx", index=False)
-print("\nSaved: near_constant_columns_90pct.xlsx")
+results_df.to_excel("near_constant_columns_95pct.xlsx", index=False)
+print("\nSaved: near_constant_columns_95pct.xlsx")
 
 # Check unbalanced columns
 print("\n==================================================")
@@ -377,14 +378,6 @@ only the imbalance but also the sample size in the minority group and the real e
 statistical significance). This means we only keep rare flags that actually change the target in a meaningful way, and we drop the ones that are
 rare and useless, improving model quality and reducing noise.
 """
-
-#^^^^^^^^^^^^^^^^^^^^^ I DID NOT DROP ANY COLUMNS YET IN THIS STEP, UNTIL YOU LET ME KNOW WHAT YOU THINK!
-
-# model_data = model_data.drop(columns=single_value_cols)
-
-# print("New shape after dropping:", model_data.shape)
-
-
 drop_cols = [
     "UL", "cUL", "CCC", "KC", "PSE", "NOM",
     "CCN_Top10_AAAL", "CCN_Top10_AAAU", "CCN_Top10_NWIN",
@@ -474,7 +467,7 @@ model_data = model_data.drop_duplicates()
 # #touch_current_single_test is slightly stronger
 
 ###############################
-########## Next Steps #########
+########## Next Steps BELOW #########
 ###############################
 
 
@@ -599,6 +592,7 @@ comparison_all = comparison_all.reset_index()
 # Clean print
 print(comparison_all.head(20).to_string(index=False))
 
+#######################################################################################################################################################
 
 ###############################
 ########## STAGE B #########
@@ -670,6 +664,7 @@ stageB_importance = stageB_importance.sort_values(
 print("\nTop 20 Features — Stage B Importance:\n")
 print(stageB_importance.head(20).to_string(index=False))
 
+#######################################################################################################################################################
 
 ###############################
 ########## STAGE C #########
@@ -756,7 +751,12 @@ print("y shape:", y.shape)
 rfecv_results.to_excel("rfecv_feature_ranking.xlsx", index=False)
 print("\nSaved: rfecv_feature_ranking.xlsx")
 
-
+###############################################################################
+####Checking work
+data.shape
+model_data.shape
+X.shape
+X_final.shape
 
 """
 Finalize feature selection in three stages: Univariate Screening (A), Model-Based Importance with CV (B), and Recursive Feature Elimination with CV (C)
@@ -783,6 +783,40 @@ We’ve already cleaned, encoded, removed near-constant and redundant features, 
 Now we need evidence-based feature selection to reduce dimensionality and improve generalization.
 Univariate = fast signal check; Model-based = captures interactions and non-linearities; RFECV = builds a minimal yet strong feature set.
 """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
