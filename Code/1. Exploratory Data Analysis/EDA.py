@@ -26,6 +26,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from sklearn.feature_selection import RFECV
 from sklearn.metrics import mean_squared_error, make_scorer
+from sklearn.ensemble import ExtraTreesRegressor
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 pd.set_option("display.max_columns", None)
@@ -490,8 +491,29 @@ X = X.select_dtypes(include=[np.number]).copy()
 # Fill any remaining NaNs just in case
 X = X.fillna(0)
 
-# Compute Mutual Information
-mi_scores = mutual_info_regression(X, y, random_state=42)
+# ------------------------------------------------------------
+# Identify discrete features (binary or low-cardinality)
+# ------------------------------------------------------------
+discrete_mask = []
+
+for col in X.columns:
+    unique_vals = pd.unique(X[col].dropna())
+    
+    # Binary columns OR very low-cardinality columns treated as discrete
+    if set(unique_vals).issubset({0, 1}) or len(unique_vals) <= 5:
+        discrete_mask.append(True)
+    else:
+        discrete_mask.append(False)
+
+# ------------------------------------------------------------
+# Compute Mutual Information (properly handling discrete vars)
+# ------------------------------------------------------------
+mi_scores = mutual_info_regression(
+    X,
+    y,
+    discrete_features=np.array(discrete_mask),
+    random_state=42
+)
 
 # Put into DataFrame
 mi_df = pd.DataFrame({
@@ -501,8 +523,10 @@ mi_df = pd.DataFrame({
 
 # Sort highest first
 mi_df = mi_df.sort_values("MI_Score", ascending=False)
+
 print("\nTop 20 Features by Mutual Information:\n")
 print(mi_df.head(20))
+
 
 #PART 2: Spearman Correlation
 # Compute Spearman correlation for each feature vs target
@@ -525,10 +549,12 @@ print(spearman_df.head(20))
 
 #PART 3: Shallow Tree Importance
 # Use same X and y from earlier
-tree = DecisionTreeRegressor(
-    max_depth=3,     # shallow = simple model
-    random_state=42
-)
+tree = ExtraTreesRegressor(
+        n_estimators=500,
+        max_depth=3,
+        random_state=42,
+        n_jobs=-1
+    )
 
 tree.fit(X, y)
 
@@ -536,7 +562,8 @@ tree.fit(X, y)
 tree_importance = pd.DataFrame({
     "Feature": X.columns,
     "Tree_Importance": tree.feature_importances_
-})
+}).sort_values("Tree_Importance", ascending=False)
+print(tree_importance.head(20))
 
 # Sort highest first
 tree_importance = tree_importance.sort_values(
@@ -597,28 +624,36 @@ print("\n\nStage B starts Here\n")
 ###############################
 ########## STAGE B #########
 ###############################
-
-#Checking baseline RMSE (output was -> 0.6383592318262433)
-print("\n\nBaseline RMSE:\n")
-y_true = y
-y_pred_baseline = np.mean(y_true)
-baseline_rmse = np.sqrt(np.mean((y_true-y_pred_baseline) ** 2))
-print (baseline_rmse)
-
 X_model = X.copy()
-y_model = y.copy()
+y_model = y.copy()  # LOG(hours)
 
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
-rmse_scores = []
-gain_importance_accumulator = np.zeros(X_model.shape[1])
-perm_importance_accumulator = np.zeros(X_model.shape[1])
+# ---------- Baseline RMSE (REAL HOURS) ----------
+y_hours = np.exp(y_model)
+baseline_pred_hours = y_hours.mean()
+baseline_rmse_hours = np.sqrt(mean_squared_error(y_hours, np.full_like(y_hours, baseline_pred_hours)))
+print("\nBaseline RMSE (hours):", round(float(baseline_rmse_hours), 2))
 
-for fold, (train_idx, val_idx) in enumerate(kf.split(X_model)):
-    
+# ---------- Custom scorer: NEG RMSE in HOURS ----------
+def neg_rmse_hours(y_true_log, y_pred_log):
+    y_true_h = np.exp(y_true_log)
+    y_pred_h = np.exp(y_pred_log)
+    rmse_h = np.sqrt(mean_squared_error(y_true_h, y_pred_h))
+    return -rmse_h
+
+perm_scorer_hours = make_scorer(neg_rmse_hours, greater_is_better=True)
+
+rmse_hours_scores = []
+gain_importance_accumulator = np.zeros(X_model.shape[1])
+
+perm_real_accumulator = np.zeros(X_model.shape[1])
+perm_null_accumulator = np.zeros(X_model.shape[1])
+
+for fold, (train_idx, val_idx) in enumerate(kf.split(X_model), start=1):
     X_train, X_val = X_model.iloc[train_idx], X_model.iloc[val_idx]
     y_train, y_val = y_model.iloc[train_idx], y_model.iloc[val_idx]
-    
+
     model = XGBRegressor(
         n_estimators=300,
         max_depth=4,
@@ -628,51 +663,69 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(X_model)):
         random_state=42,
         n_jobs=-1
     )
-    
+
     model.fit(X_train, y_train)
-    
-    # Predict
-    y_pred = model.predict(X_val)
-    rmse = np.sqrt(mean_squared_error(y_val, y_pred))
-    rmse_scores.append(rmse)
-    print(f"\nFold {fold+1} RMSE: {rmse:.4f}")
-    
-    # Gain importance
+
+    # ---------- RMSE in REAL HOURS ----------
+    y_pred_log = model.predict(X_val)
+    y_val_hours  = np.exp(y_val)
+    y_pred_hours = np.exp(y_pred_log)
+
+    rmse_h = np.sqrt(mean_squared_error(y_val_hours, y_pred_hours))
+    rmse_hours_scores.append(rmse_h)
+    print(f"Fold {fold} RMSE (hours): {rmse_h:.2f}")
+
+    # ---------- Gain importance ----------
     gain_importance_accumulator += model.feature_importances_
-    
-    # Permutation importance
-    perm = permutation_importance(
+
+    # ---------- Permutation importance (REAL HOURS scorer) ----------
+    perm_real = permutation_importance(
         model,
         X_val,
         y_val,
         n_repeats=5,
         random_state=42,
-        scoring="neg_root_mean_squared_error"
+        scoring=perm_scorer_hours
     )
-    
-    perm_importance_accumulator += perm.importances_mean
+    perm_real_accumulator += perm_real.importances_mean
+
+    # ---------- Null baseline: shuffled target ----------
+    y_val_shuff = y_val.sample(frac=1.0, random_state=42).reset_index(drop=True)
+    X_val_reset = X_val.reset_index(drop=True)
+
+    perm_null = permutation_importance(
+        model,
+        X_val_reset,
+        y_val_shuff,
+        n_repeats=5,
+        random_state=42,
+        scoring=perm_scorer_hours
+    )
+    perm_null_accumulator += perm_null.importances_mean
 
 
-# Average results
-avg_rmse = np.mean(rmse_scores)
-avg_gain_importance = gain_importance_accumulator / 5
-avg_perm_importance = perm_importance_accumulator / 5
+avg_rmse_hours = float(np.mean(rmse_hours_scores))
+avg_gain = gain_importance_accumulator / kf.get_n_splits()
 
-print(f"\nCross-Validated RMSE: {avg_rmse:.4f}")
+avg_perm_real = perm_real_accumulator / kf.get_n_splits()
+avg_perm_null = perm_null_accumulator / kf.get_n_splits()
 
-stageB_importance = pd.DataFrame({
+print("\nCross-Validated RMSE (hours):", round(avg_rmse_hours, 2))
+
+stageB = pd.DataFrame({
     "Feature": X_model.columns,
-    "Gain_Importance": avg_gain_importance,
-    "Permutation_Importance": avg_perm_importance
+    "Gain_Importance": avg_gain,
+    "Permutation_Real": avg_perm_real, #real data
+    "Permutation_Null": avg_perm_null, #shuffled target (noise)
+    "Permutation_Delta": avg_perm_real - avg_perm_null #Real - Null
 })
 
-stageB_importance = stageB_importance.sort_values(
-    "Permutation_Importance",
-    ascending=False
-)
+stageB_keep = stageB[stageB["Permutation_Delta"] > 0].copy()
+stageB_keep = stageB_keep.sort_values("Permutation_Delta", ascending=False)
 
-print("\n\nTop 20 Features — Stage B Importance:\n")
-print(stageB_importance.head(20).to_string(index=False))
+print("\nTop 20 Features — Stage B (Permutation Importance in HOURS, noise-adjusted):\n")
+print(stageB_keep.head(20).to_string(index=False))
+
 
 #######################################################################################################################################################
 print("\n\nStage C starts Here\n")
@@ -711,10 +764,12 @@ xgb_model = XGBRegressor(
 )
 
 # --- RMSE scorer (RFECV needs a "higher is better" scorer, so we use negative RMSE) ---
-def rmse(y_true, y_pred):
-    return np.sqrt(mean_squared_error(y_true, y_pred))
+def rmse_hours(y_true_log, y_pred_log):
+    y_true_h = np.exp(y_true_log)
+    y_pred_h = np.exp(y_pred_log)
+    return np.sqrt(mean_squared_error(y_true_h, y_pred_h))
 
-rmse_scorer = make_scorer(rmse, greater_is_better=False)
+rmse_scorer = make_scorer(rmse_hours, greater_is_better=False)
 
 # --- RFECV ---
 rfecv = RFECV(
@@ -722,7 +777,7 @@ rfecv = RFECV(
     step=1,                 # remove 1 feature at a time (best for small feature sets like yours)
     cv=cv,
     scoring=rmse_scorer,
-    min_features_to_select=3,
+    min_features_to_select=max(10, int(0.25 * X.shape[1])),
     n_jobs=-1
 )
 
