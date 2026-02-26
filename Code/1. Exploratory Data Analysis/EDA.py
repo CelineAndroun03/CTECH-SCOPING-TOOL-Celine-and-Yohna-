@@ -599,7 +599,7 @@ print("\n\nStage B starts Here\n")
 ###############################
 
 #Checking baseline RMSE (output was -> 0.6383592318262433)
-print("\n\nBaseline RMSE\n")
+print("\n\nBaseline RMSE:\n")
 y_true = y
 y_pred_baseline = np.mean(y_true)
 baseline_rmse = np.sqrt(np.mean((y_true-y_pred_baseline) ** 2))
@@ -635,6 +635,7 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(X_model)):
     y_pred = model.predict(X_val)
     rmse = np.sqrt(mean_squared_error(y_val, y_pred))
     rmse_scores.append(rmse)
+    print(f"\nFold {fold+1} RMSE: {rmse:.4f}")
     
     # Gain importance
     gain_importance_accumulator += model.feature_importances_
@@ -650,6 +651,7 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(X_model)):
     )
     
     perm_importance_accumulator += perm.importances_mean
+
 
 # Average results
 avg_rmse = np.mean(rmse_scores)
