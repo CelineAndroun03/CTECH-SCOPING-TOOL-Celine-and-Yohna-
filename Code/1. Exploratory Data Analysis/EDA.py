@@ -211,9 +211,12 @@ model_data["total_CB_count_Binary"] = (model_data["total_CB_count"].fillna(0) > 
 model_data["total_test_count"] = pd.to_numeric(model_data["total_test_count"], errors="coerce")
 model_data["total_test_count_Binary"] = (model_data["total_test_count"].fillna(0) > 0).astype(int)
 
-#standard_count -> int
+#standard_count -> int (update dropping this)
 model_data["standard_count"] = pd.to_numeric(model_data["standard_count"], errors="coerce")
 model_data["standard_count_Binary"] = model_data["standard_count"].fillna(0).astype(int)
+model_data = model_data.drop(
+    columns=["total_CB_count_Binary", "total_test_count_Binary", "standard_count_Binary"],errors="ignore"
+)
 
 
 #CCN_Data Hub Top 10 + OTHER + OHE
@@ -239,9 +242,9 @@ model_data = model_data.drop(columns=[HUB_COL, "CCN_Hub_top10"], errors="ignore"
 print(" Step 5 complete")
 
 #Quick Check (binary columns)
-print(model_data["total_CB_count_Binary"].value_counts())
-print(model_data["total_test_count_Binary"].value_counts())
-print(model_data["standard_count_Binary"].value_counts())
+print(model_data["total_CB_count"].describe())
+print(model_data["total_test_count"].describe())
+print(model_data["standard_count"].describe())
 
 
 #Check CCN Top10 columns
@@ -579,45 +582,50 @@ print(tree_importance.head(20))
 print("\n\n==================================================")
 print("Top 20 Features (MI + Spearman + Tree aligned)")
 print("====================================================\n")
+TOP_N = 21
+NAME_MAX = 50
 
-# Set Feature as index for safe alignment
-mi_tmp = mi_df.set_index("Feature")
-sp_tmp = spearman_df.set_index("Feature")
-tree_tmp = tree_importance.set_index("Feature")
 
-# Combine all into one table
-comparison_all = pd.concat(
-    [
-        mi_tmp["MI_Score"],
-        sp_tmp["Spearman"],
-        sp_tmp["Abs_Spearman"],
-        tree_tmp["Tree_Importance"]
-    ],
-    axis=1
+# Align safely
+mi_tmp   = mi_df.set_index("Feature")[["MI_Score"]]
+sp_tmp   = spearman_df.set_index("Feature")[["Abs_Spearman"]]
+tree_tmp = tree_importance.set_index("Feature")[["Tree_Importance"]]
+
+comparison = (
+    mi_tmp.join(sp_tmp, how="outer")
+          .join(tree_tmp, how="outer")
+          .fillna(0)
 )
 
-# Optional normalization
-comparison_all["MI_Normalized"] = (
-    comparison_all["MI_Score"] /
-    comparison_all["MI_Score"].max()
-)
-
-comparison_all["Tree_Normalized"] = (
-    comparison_all["Tree_Importance"] /
-    (comparison_all["Tree_Importance"].max() if comparison_all["Tree_Importance"].max() > 0 else 1)
-)
-
-# Sort by MI (or change if you prefer)
-comparison_all = comparison_all.sort_values(
+# Sort by MI primarily
+comparison = comparison.sort_values(
     by=["MI_Score", "Abs_Spearman", "Tree_Importance"],
     ascending=False
+).head(TOP_N).reset_index()
+
+# Shorten long feature names
+comparison["Feature"] = (
+    comparison["Feature"].astype(str)
+    .str.replace("type_of_investigation_", "TOI_", regex=False)
+    .str.replace("Investigation_type_", "INV_", regex=False)
+    .str.replace("CCN_Top10_", "CCN_", regex=False)
+    .str.slice(0, NAME_MAX)
 )
 
-# Reset index so Feature becomes a column again
-comparison_all = comparison_all.reset_index()
+# Rename columns cleanly
+comparison = comparison.rename(columns={
+    "MI_Score": "MI",
+    "Abs_Spearman": "Spearman",
+    "Tree_Importance": "Tree"
+})
 
-# Clean print
-print(comparison_all.head(20).to_string(index=False))
+# Round for presentation
+comparison["MI"] = comparison["MI"].round(4)
+comparison["Spearman"] = comparison["Spearman"].round(4)
+comparison["Tree"] = comparison["Tree"].round(4)
+
+print(comparison[["Feature", "MI", "Spearman", "Tree"]].to_string(index=False))
+
 
 #######################################################################################################################################################
 print("\n\nStage B starts Here\n")
@@ -805,6 +813,13 @@ print(rfecv_results[rfecv_results["Selected"] == True].to_string(index=False))
 print("\nDropped features (ranked):")
 print(rfecv_results[rfecv_results["Selected"] == False].head(30).to_string(index=False))
 
+
+print("\nInitial cleaned dataset:")
+print("Shape:", model_data.shape)   # <-- replace with your original dataset variable
+
+print("\n============================================================")
+
+
 # --- Build final dataset for modeling ---
 X_final = X[selected_features].copy()
 
@@ -812,9 +827,52 @@ print("\nFinal modeling matrix:")
 print("X_final shape:", X_final.shape)
 print("y shape:", y.shape)
 
-# Optional: save for proof + sharing
-rfecv_results.to_excel("rfecv_feature_ranking.xlsx", index=False)
-print("\nSaved: rfecv_feature_ranking.xlsx")
+# # Optional: save for proof + sharing
+# rfecv_results.to_excel("rfecv_feature_ranking.xlsx", index=False)
+# print("\nSaved: rfecv_feature_ranking.xlsx")
+
+# ============================================================
+# Slide-ready summary (Feature count + RMSE before/after RFECV)
+# ============================================================
+
+# "How many did we start with?" (feature count used in modeling before RFECV)
+start_features = X.shape[1]              # features going into RFECV
+end_features   = X_final.shape[1]        # features kept by RFECV
+rows_used      = X.shape[0]
+
+# RMSE before RFECV = Stage B cross-validated RMSE in real hours
+rmse_before = avg_rmse_hours  # already computed in Stage B
+
+# RMSE after RFECV (use RFECV CV results)
+# RFECV uses "higher is better"; with greater_is_better=False it stores NEGATIVE RMSE scores
+rmse_curve = -rfecv.cv_results_["mean_test_score"]   # converts to positive RMSE (hours)
+best_idx = int(np.argmin(rmse_curve))
+rmse_after = float(rmse_curve[best_idx])
+
+# Feature counts tested in RFECV correspond to: min_features_to_select ... start_features
+min_feats = max(10, int(0.25 * start_features))
+best_n_features_from_curve = min_feats + best_idx   # should match rfecv.n_features_
+
+print("\n" + "="*62)
+print("FEATURE OPTIMIZATION RESULTS (Stage C: RFECV)")
+print("="*62)
+print(f"Rows used for modeling: {rows_used}")
+print(f"Cleaned dataset (incl. target) shape: {model_data.shape}")
+print(f"Starting feature set (X) shape: {X.shape}")
+print(f"Final feature set (X_final) shape: {X_final.shape}")
+
+print("\nFeature reduction:")
+print(f"  {start_features} → {end_features}  (dropped {start_features - end_features})")
+
+print("\nCross-validated RMSE (hours):")
+print(f"  Before RFECV (Stage B XGB, 5-fold): {rmse_before:.2f}")
+print(f"  After  RFECV (best subset):         {rmse_after:.2f}")
+
+print("\nSummary:")
+print(f"Reduced dimensionality from {start_features} to {end_features} features")
+print(f"while maintaining cross-validated RMSE ({rmse_before:.2f} -> {rmse_after:.2f} hours).")
+print(f"Why 17? RFECV tested subsets and the lowest CV RMSE occurred at {best_n_features_from_curve} features.")
+print("="*62 + "\n")
 
 ###############################################################################
 ####Checking work
@@ -822,6 +880,9 @@ data.shape
 model_data.shape
 X.shape
 X_final.shape
+
+#Checking if any binary columns still exist
+#print([c for c in model_data.columns if "Binary" in c])
 
 
 
@@ -1240,3 +1301,53 @@ Univariate = fast signal check; Model-based = captures interactions and non-line
 
 
 
+
+
+
+
+#STAGE A combination 
+
+# #PART 4(EXTRA STEP): COMPARE ALL 3
+
+# print("\n\n==================================================")
+# print("Top 20 Features (MI + Spearman + Tree aligned)")
+# print("====================================================\n")
+
+# # Set Feature as index for safe alignment
+# mi_tmp = mi_df.set_index("Feature")
+# sp_tmp = spearman_df.set_index("Feature")
+# tree_tmp = tree_importance.set_index("Feature")
+
+# # Combine all into one table
+# comparison_all = pd.concat(
+#     [
+#         mi_tmp["MI_Score"],
+#         sp_tmp["Spearman"],
+#         sp_tmp["Abs_Spearman"],
+#         tree_tmp["Tree_Importance"]
+#     ],
+#     axis=1
+# )
+
+# # Optional normalization
+# comparison_all["MI_Normalized"] = (
+#     comparison_all["MI_Score"] /
+#     comparison_all["MI_Score"].max()
+# )
+
+# comparison_all["Tree_Normalized"] = (
+#     comparison_all["Tree_Importance"] /
+#     (comparison_all["Tree_Importance"].max() if comparison_all["Tree_Importance"].max() > 0 else 1)
+# )
+
+# # Sort by MI (or change if you prefer)
+# comparison_all = comparison_all.sort_values(
+#     by=["MI_Score", "Abs_Spearman", "Tree_Importance"],
+#     ascending=False
+# )
+
+# # Reset index so Feature becomes a column again
+# comparison_all = comparison_all.reset_index()
+
+# # Clean print
+# print(comparison_all.head(20).to_string(index=False))
