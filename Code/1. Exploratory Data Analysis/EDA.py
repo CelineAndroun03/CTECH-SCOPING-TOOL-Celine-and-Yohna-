@@ -479,6 +479,31 @@ model_data = model_data.drop_duplicates()
 ########## Next Steps BELOW #########
 ###############################
 
+"""
+Finalize feature selection in three stages: Univariate Screening (A), Model-Based Importance with CV (B), and Recursive Feature Elimination with CV (C)
+to keep only features that truly improve predictive performance on our log-transformed target.
+
+This ensures we:
+ - remove noise and redundancy,
+ - avoid overfitting,
+ - and keep a compact, high-signal feature set for XGBoost/LightGBM/RF.
+
+
+What to do next (high level)
+     - Stage A — Univariate Screening
+         - Quickly rank features by Mutual Information, Spearman correlation, and shallow tree importance to identify obvious weak/strong candidates.
+
+     - Stage B — Model-Based Importance with CV
+         - Train a tree-based model (XGBRegressor) with K-Fold cross-validation, and compute both gain importance and permutation importance on validation folds.
+         This gives a robust, model-agnostic view of which features matter.
+
+    - Stage C — RFECV (Recursive Feature Elimination with CV)
+         - Use RFECV with the same tree model to find the smallest feature set that preserves (or improves) cross-validated RMSE on the log target.
+
+We’ve already cleaned, encoded, removed near-constant and redundant features, and handled high-cardinality categoricals.
+Now we need evidence-based feature selection to reduce dimensionality and improve generalization.
+Univariate = fast signal check; Model-based = captures interactions and non-linearities; RFECV = builds a minimal yet strong feature set.
+"""
 
 
 ###############################
@@ -883,6 +908,15 @@ print("="*62 + "\n")
 ####################### MODEL TRAINING EVALUATION #############################
 ##############################################################################
 
+"""
+Divide the clean dataset into 3 parts:
+70% -> Training (Try 5 different models and see which one learns from the 70% training data, we are just learning patterns within our data in this step)
+15% -> Validation (We test each model on the 15% validation data, calculating RMSE,MAE,R^2, trying different hyperparameters,using CV or regular validation) 
+and Whichever model predicts best we choose. 
+15% -> Final test (Take the best final tuned model, test it on the untouched 15% test data and this tells us if we deploy this in production, this is how accurate
+our results would be)
+"""
+
 print("X_final:", X_final.shape)
 print("y:", y.shape)
 
@@ -1003,36 +1037,15 @@ elif best_model_name == "RandomForest":
         r2, mae, rmse = eval_model(best_tuned, Xs, ys)
         print(f"Tuned RF {split_name}: R2={r2:.3f}, MAE={mae:.2f}h, RMSE={rmse:.2f}h")
 
-#Checking if any binary columns still exist
-#print([c for c in model_data.columns if "Binary" in c])
 
 
 
-"""
-Finalize feature selection in three stages: Univariate Screening (A), Model-Based Importance with CV (B), and Recursive Feature Elimination with CV (C)
-to keep only features that truly improve predictive performance on our log-transformed target.
 
-This ensures we:
- - remove noise and redundancy,
- - avoid overfitting,
- - and keep a compact, high-signal feature set for XGBoost/LightGBM/RF.
 
 
-What to do next (high level)
-     - Stage A — Univariate Screening
-         - Quickly rank features by Mutual Information, Spearman correlation, and shallow tree importance to identify obvious weak/strong candidates.
 
-     - Stage B — Model-Based Importance with CV
-         - Train a tree-based model (XGBRegressor) with K-Fold cross-validation, and compute both gain importance and permutation importance on validation folds.
-         This gives a robust, model-agnostic view of which features matter.
 
-    - Stage C — RFECV (Recursive Feature Elimination with CV)
-         - Use RFECV with the same tree model to find the smallest feature set that preserves (or improves) cross-validated RMSE on the log target.
 
-We’ve already cleaned, encoded, removed near-constant and redundant features, and handled high-cardinality categoricals.
-Now we need evidence-based feature selection to reduce dimensionality and improve generalization.
-Univariate = fast signal check; Model-based = captures interactions and non-linearities; RFECV = builds a minimal yet strong feature set.
-"""
 
 
 
@@ -1060,416 +1073,3 @@ Univariate = fast signal check; Model-based = captures interactions and non-line
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-            ################## OLD CODE BELOW #################
-
-
-
-# # ##################################################################
-# #     #1) Load the Excel dataset
-# # ##################################################################
-
-# # 1: Import Libraries
-# from scipy.stats import skew
-# import pandas as pd
-# import numpy as np
-# import matplotlib.pyplot as plt
-# import pandas.api.types as ptypes
-# import warnings
-# import seaborn as sns
-# from pandas.api.types import is_numeric_dtype
-# from scipy.stats import kruskal
-# import statsmodels.api as sm
-# from sklearn.preprocessing import LabelEncoder
-
-
-# warnings.filterwarnings("ignore") # Ignore python warnings
-# pd.set_option('display.max_columns', None) # Settings to print all columns in the dataframe
-# pd.set_option('display.max_rows', None) # Settings to print all rows in the dataframe
-
-# # 2: Download Data
-# data = pd.read_excel("Final_data_Ctech.xlsx")
-# print("Shape:", data.shape) #Prints (rows,columns)
-
-#3-Delete columns we dont need(I did this manually in Excel)
-
-# # ##################################################################
-# #     #2) Gather Intital Information
-# # ##################################################################
-# print("##########################################")
-# print("##### Dataset Preliminary Informaion #####")
-# print("##########################################" + "\n")
-
-# print("Dataframe head(5):")
-# print(data.head(5)) # Prints the first 5 rows
-# print()
-
-# print("Dataframe shape:")
-# print("Number of columns:", str(data.shape[1])) # Prints (rows,columns)
-# print("Number of rows:", str(data.shape[0]) + '\n') # Prints (rows,columns)
-
-# print("Descriptive Statistics:")
-# print(data.describe()) # Generate descriptive statistics
-# print()
-
-# print("Dataframe dtypes:")
-# print(data.dtypes) # Return the dtypes in the DataFrame
-# print()
-
-# print("Duplicated Rows: " + str(data.duplicated().sum()) + ("\n")) # Return boolean Series denoting duplicate rows
-
-# #print(data["CCN_Data Hub"].nunique())
-# #print(data["CCN_Data Hub"].value_counts())
-
-# # ##################################################################
-# #     #3) Early Deletion(Columns That are Not Valuable)
-# # ##################################################################
-
-# data = data.drop(columns=[ #I will leave this step for you since you have the best understanding of which columns are needed
-                           
-      
-
-
-
-# ])
-# # #print(df_clean.columns.tolist())
-
-# # ##################################################################
-
-# # ##################################################################
-# #     #4) Missing Percentage / Distribution type 
-# # ##################################################################
-# data["Eng. SH"] = pd.to_numeric(data["Eng. SH"], errors="coerce")
-# data["Lab. SH"] = pd.to_numeric(data["Lab. SH"], errors="coerce")
-# data["Eng. AH"] = pd.to_numeric(data["Eng. AH"], errors="coerce")
-# data["Lab. AH"] = pd.to_numeric(data["Lab. AH"], errors="coerce")
-
-# missing_count = data.isna().sum() #Finds the sum of N/A values for each column
-# missing_percent = (data.isna().mean()*100).round(2) #Finds the percentage of N/A values for each column
-
-# distribution = {} #Creates an empty dictionary to store the results for each column.
-# for col in data.columns: #Loops through every column in the dataset.
-#     col_series = data[col].dropna() #Removes any missing values
-
-#     if col_series.empty:  #If the column has no data left after removing missing values, label it as "No data".
-#         distribution[col] = "No data"
-#     elif not is_numeric_dtype(data[col]):
-#         distribution[col] = "Categorical" #If the column is not numeric, label it as Categorical.
-#     else:
-#         s = skew(col_series)#If the column is numeric, calculate its skewness using the skew() function.
-#         if s >= 1:
-#             distribution[col] = "Right skewed"  #If skewness is 1 or more, the data has a long tail on the right (a few large values).
-#         elif s <= -1:
-#             distribution[col] = "Left skewed" #If skewness is -1 or less, the data has a long tail on the left (a few small values).
-#         elif abs(s) < 0.5:
-#             distribution[col] = "normal" #If skewness is close to 0 (between -0.5 and 0.5), the data is fairly symmetrical.
-#         else:
-#             distribution[col] = "Slightly skewed"
-
-
-# #Table for % of missing values
-# summary = pd.DataFrame({
-#         "Data Type" : data.dtypes.astype(str), #Type of data
-#         "Missing Count": missing_count, #Total # of missing values per column
-#         "Missing %": missing_percent,    #Percentage of missing values per column
-#         "  Distribution": distribution
-#         }).sort_values("Missing %", ascending=False) #Sorts the values in ascending order
-
-# print("\nMISSING VALUES PER ATTRIBUTE + DISTRIBUTION")
-# print(summary.to_string())
-
-# # ########################################################################################################
-# # #VISUALIZING THE DISTRIBUTION
-
-# # # Loop through numeric columns
-# # for col in data.select_dtypes(include=['int64', 'float64']).columns:
-# #     plt.figure(figsize=(6,4))
-# #     sns.histplot(data[col].dropna(), kde=True, bins=30)
-# #     plt.title(f"Distribution of {col}")
-# #     plt.xlabel(col)
-# #     plt.ylabel("Frequency")
-# #     plt.show()
-
-# # # Loop through categorical columns
-# # for col in data.select_dtypes(include=['object', 'category']).columns:
-# #     plt.figure(figsize=(8,4))
-# #     sns.countplot(x=data[col])
-# #     plt.title(f"Count Plot of {col}")
-# #     plt.xticks(rotation=45)
-# #     plt.show()
-
-
-
-# # ##################################################################
-# #     #5) Data Visualization
-# # ##################################################################
-
-# #Plot the frequency of each investigation type
-# types = [
-#     "1 - Full Investigation",
-#     "2 - Full Investigation + Alternate Construction",
-#     "3 - Alternate Construction",
-#     "4 - Administrative No Test anticipated (revisions requiring Engineering Review)",
-#     "5 - Administrative CB review"
-# ]
-
-# counts = {t: (data["type_of_investigation"] == t).sum() for t in types}
-# print(counts)
-# plt.figure(figsize=(6, 8))
-# ax = pd.Series(counts).plot(kind="bar", color="skyblue")
-# total = sum(counts.values())
-# print("Total:", total)
-# labels = [f"{c} ({c/total*100:.1f}%)" for c in counts.values()]
-# ax.bar_label(ax.containers[0], labels=labels)
-
-# plt.xlabel("Type of Investigation")
-# plt.ylabel("Count")
-# plt.title("Frequency of Each Investigation Type")
-# plt.title('Average Total Actual Hours by Investigation Type')
-# plt.legend(['Investigation Type'])
-# plt.xticks(rotation=45, ha="right")
-# plt.tight_layout()
-# plt.show()
-
-# # #Calcuates the average total lab actual hours for each investigation type
-# avg_lab = (
-#     data.loc[data["type_of_investigation"].isin(types)]
-#         .groupby("type_of_investigation")["Lab. AH"]
-#         .mean()
-#         .reindex(types)
-# )
-
-# median_lab = (
-#     data.loc[data["type_of_investigation"].isin(types)]
-#         .groupby("type_of_investigation")["Lab. AH"]
-#         .median()
-#         .reindex(types)
-# )
-
-# summary_lab = pd.DataFrame({"Mean": avg_lab, "Median": median_lab})
-
-# ax = summary_lab.plot(kind="bar", figsize=(10, 6))
-# plt.xlabel("Type of Investigation")
-# plt.ylabel("Hours")
-# plt.title("Mean vs Median Lab Actual Hours by Investigation Type")
-# plt.legend(["Mean", "Median"])
-# plt.xticks(rotation=30, ha="right")
-
-# # add labels on top of bars
-# for container in ax.containers:
-#     ax.bar_label(container, fmt="%.1f")
-
-# plt.tight_layout()
-# plt.show()
-
-# ###Calcuates the average total actual eng hours for each investigation type
-# avg_eng = (
-#     data.loc[data["type_of_investigation"].isin(types)]
-#         .groupby("type_of_investigation")["Eng. AH"]
-#         .mean()
-#         .reindex(types)
-# )
-
-# median_eng = (
-#     data.loc[data["type_of_investigation"].isin(types)]
-#         .groupby("type_of_investigation")["Eng. AH"]
-#         .median()
-#         .reindex(types)
-# )
-
-# summary_eng = pd.DataFrame({"Mean": avg_eng, "Median": median_eng})
-
-# ax = summary_eng.plot(kind="bar", figsize=(10, 6))
-# plt.xlabel("Type of Investigation")
-# plt.ylabel("Hours")
-# plt.title("Mean vs Median Eng Actual Hours by Investigation Type")
-# plt.legend(["Mean", "Median"])
-# plt.xticks(rotation=30, ha="right")
-
-# # add labels on top of bars
-# for container in ax.containers:
-#     ax.bar_label(container, fmt="%.1f")
-
-# plt.tight_layout()
-# plt.show()
-
-# # ##################################################################
-# # #6) correlation between the variables and the targets
-# # ##################################################################
-
-# print("############################### Lab Actual Hours Correlation to Other Attributes #################################")
-# corr = data.corr(numeric_only=True)
-# print(corr["Lab. AH"].sort_values(ascending=False))
-# print("############################### Eng Actual Hours Correlation to Other Attributes #################################")
-# print(corr["Eng. AH"].sort_values(ascending=False))
-
-
-
-# # corr = data.corr(numeric_only=True)
-# # drop_cols = [col for col in corr.columns if "hrs" in col.lower()]
-# # lab_corr = corr ["Lab. AH"].drop(drop_cols).sort_values(ascending=False)
-# # eng_corr = corr ["Eng. AH"].drop(drop_cols).sort_values(ascending=False)
-# # comparison = pd.DataFrame({
-# #     "Lab. AH": lab_corr,
-# #     "Eng. AH": eng_corr,
-# # })
-# # print(comparison)
-
-
-
-# #I am still trying to understand hoe outliers work; however, from a quick glance it seems that most projects have normal hours,
-# #but there are some with extremely high hours (outliers). Some rows also have negative hour values, so I am assuming the data
-# #needs some cleaning up before modeling. 
-
-
-# #^^^^^^^^^^
-
-# # ##################################################################
-# # #7) Outliers to target
-# # ##################################################################
-# outlier_cols = ["Eng. SH", "Lab. SH", "Eng. AH", "Lab. AH"]
-
-# # (optional but useful) totals
-# data["Total SH"] = data["Eng. SH"] + data["Lab. SH"]
-# data["Total AH"] = data["Eng. AH"] + data["Lab. AH"]
-# outlier_cols += ["Total SH", "Total AH"]
-
-# # Negative / invalid hours check
-# neg = data[(data[outlier_cols] < 0).any(axis=1)]
-# print("\nNEGATIVE HOURS ROWS:", neg.shape[0])
-# if neg.shape[0] > 0:
-#     print(neg[outlier_cols].head(10))
-
-# # IQR outlier check (handles zero-heavy columns)
-# print("\nIQR OUTLIER CHECK (1.5 * IQR):")
-# for col in outlier_cols:
-
-#     # Use only non-zero values for IQR so Lab columns don't get bounds [0,0]
-#     temp = data.loc[data[col] > 0, col].dropna()
-
-#     # If column is all zeros / empty, skip
-#     if temp.empty:
-#         print(f"\n--- {col} ---")
-#         print("Skipped (all zeros or no data)")
-#         continue
-
-#     Q1 = temp.quantile(0.25)
-#     Q3 = temp.quantile(0.75)
-#     IQR = Q3 - Q1
-
-#     # If IQR is still 0 (too many identical values), skip
-#     if IQR == 0:
-#         print(f"\n--- {col} ---")
-#         print("Skipped (IQR = 0, values too concentrated)")
-#         continue
-
-#     lower = Q1 - 1.5 * IQR
-#     upper = Q3 + 1.5 * IQR
-
-#     outliers = data[(data[col] > 0) & ((data[col] < lower) | (data[col] > upper))]
-
-#     print(f"\n--- {col} ---")
-#     print(f"Bounds: [{lower:.2f}, {upper:.2f}]")
-#     print(f"Outliers Found: {outliers.shape[0]}")
-#     print("Top 5 outlier values:")
-#     print(outliers[col].sort_values(ascending=False).head(5))
-
-
-
-
-
-
-
-
-
-
-
-
-
-#####################DUPLICATES CODE###########################
-# # Excel row number (assumes row 1 in Excel is headers)
-# # If your sheet has extra header rows, adjust +2 to +3/+4 etc.
-# data.insert(0, "excel_row", data.index + 2)
-
-# # --- find exact duplicate rows across ALL columns (excluding excel_row) ---
-# subset_cols = data.columns.drop("excel_row")
-
-# dups = data[data.duplicated(subset=subset_cols, keep=False)].copy()
-
-# # assign a group id so duplicate copies sit together
-# dups["dup_group"] = dups.groupby(list(subset_cols), dropna=False).ngroup() + 1
-
-# # sort so pairs are next to each other
-# dups = dups.sort_values(["dup_group", "excel_row"])
-
-# # save report for Excel verification
-# dups.to_excel("DUPLICATES_REPORT_WITH_EXCEL_ROWS.xlsx", index=False)
-
-# print("Saved: DUPLICATES_REPORT_WITH_EXCEL_ROWS.xlsx")
-# print("Duplicate groups:", dups["dup_group"].nunique())
-# print("Duplicate rows total:", len(dups))
-
-
-
-
-
-
-
-#STAGE A combination 
-
-# #PART 4(EXTRA STEP): COMPARE ALL 3
-
-# print("\n\n==================================================")
-# print("Top 20 Features (MI + Spearman + Tree aligned)")
-# print("====================================================\n")
-
-# # Set Feature as index for safe alignment
-# mi_tmp = mi_df.set_index("Feature")
-# sp_tmp = spearman_df.set_index("Feature")
-# tree_tmp = tree_importance.set_index("Feature")
-
-# # Combine all into one table
-# comparison_all = pd.concat(
-#     [
-#         mi_tmp["MI_Score"],
-#         sp_tmp["Spearman"],
-#         sp_tmp["Abs_Spearman"],
-#         tree_tmp["Tree_Importance"]
-#     ],
-#     axis=1
-# )
-
-# # Optional normalization
-# comparison_all["MI_Normalized"] = (
-#     comparison_all["MI_Score"] /
-#     comparison_all["MI_Score"].max()
-# )
-
-# comparison_all["Tree_Normalized"] = (
-#     comparison_all["Tree_Importance"] /
-#     (comparison_all["Tree_Importance"].max() if comparison_all["Tree_Importance"].max() > 0 else 1)
-# )
-
-# # Sort by MI (or change if you prefer)
-# comparison_all = comparison_all.sort_values(
-#     by=["MI_Score", "Abs_Spearman", "Tree_Importance"],
-#     ascending=False
-# )
-
-# # Reset index so Feature becomes a column again
-# comparison_all = comparison_all.reset_index()
-
-# # Clean print
-# print(comparison_all.head(20).to_string(index=False))
