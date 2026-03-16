@@ -1,0 +1,41 @@
+{
+  "train_metrics": {
+    "R2_log": 0.5296823836521178,
+    "MAE_hours": 3.3120744488186946,
+    "RMSE_hours": 4.7749399144087565
+  },
+  "val_metrics": {
+    "R2_log": 0.525792346965769,
+    "MAE_hours": 3.1962092793872414,
+    "RMSE_hours": 4.351238522054173
+  },
+  "test_metrics": {
+    "R2_log": 0.4734507509786581,
+    "MAE_hours": 3.4639356627934417,
+    "RMSE_hours": 4.940140140674868
+  },
+  "n_rows_total_after_target_cleaning": 1888,
+  "n_rows_train": 1321,
+  "n_rows_val": 283,
+  "n_rows_test": 284,
+  "n_features": 17,
+  "selected_features": [
+    "standard_count",
+    "1 (60950-1)",
+    "total_CB_count",
+    "total_test_count",
+    "Region_AMERICAS",
+    "Region_ASIA",
+    "Investigation_type_2 - Class III",
+    "Investigation_type_3 - Power Supply",
+    "type_of_investigation_1 - Full Investigation",
+    "type_of_investigation_2 - Full Investigation + Alternate Construction",
+    "type_of_investigation_3 - Alternate Construction",
+    "type_of_investigation_4 - Administrative No Test anticipated (revisions requiring Engineering Review)",
+    "CCN_Top10_AALL",
+    "CCN_Top10_AZOT",
+    "CCN_Top10_AZOT2",
+    "CCN_Top10_QQJQ",
+    "CCN_Top10_QQJQ2"
+  ]
+}
