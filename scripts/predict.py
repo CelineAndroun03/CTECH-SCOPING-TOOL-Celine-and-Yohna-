@@ -1,4 +1,5 @@
 import json
+import os
 import joblib
 import numpy as np
 import pandas as pd
@@ -7,12 +8,10 @@ import pandas as pd
 # ============================================================
 # PATHS
 # ============================================================
-
-ARTIFACT_DIR = "artifacts"
-MODEL_PATH = f"{ARTIFACT_DIR}/xgb_model.pkl"
-CONFIG_PATH = f"{ARTIFACT_DIR}/preprocessing_config.json"
-
-
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+ARTIFACT_DIR = os.path.join(BASE_DIR, "artifacts")
+MODEL_PATH = os.path.join(ARTIFACT_DIR, "xgb_model.pkl")
+CONFIG_PATH = os.path.join(ARTIFACT_DIR, "preprocessing_config.json")
 # ============================================================
 # LOAD ARTIFACTS
 # ============================================================
