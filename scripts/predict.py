@@ -167,19 +167,77 @@ if __name__ == "__main__":
     # --------------------------------------------------
     # Accuracy evaluation
     # --------------------------------------------------
-    y_true = pd.to_numeric(df["Eng. AH"], errors="coerce")
-    y_pred = pd.to_numeric(predictions["predicted_Eng_AH"], errors="coerce")
+# --------------------------------------------------
+# Accuracy evaluation
+# --------------------------------------------------
+y_true = pd.to_numeric(df["Eng. AH"], errors="coerce")
+y_pred = pd.to_numeric(predictions["predicted_Eng_AH"], errors="coerce")
 
-    error = np.abs(y_true - y_pred)
+# Drop bad rows if any
+mask = y_true.notna() & y_pred.notna()
+y_true = y_true[mask]
+y_pred = y_pred[mask]
 
-    print("\n===== Accuracy Distribution =====")
-    print(f"Total rows scored: {len(error)}")
-    print(f"MAE: {np.mean(error):.2f} hours")
+# Absolute error in hours
+error = np.abs(y_true - y_pred)
 
-    print(f"% within 1 hour: {np.mean(error <= 1) * 100:.1f}%")
-    print(f"% within 2 hours: {np.mean(error <= 2) * 100:.1f}%")
-    print(f"% within 3 hours: {np.mean(error <= 3) * 100:.1f}%")
+# Relative error as % of actual hours
+# Avoid divide-by-zero if any actual hours are 0
+pct_error = np.where(y_true != 0, (error / y_true) * 100, np.nan)
 
-    print(f"90% of predictions within: {np.percentile(error, 90):.2f} hours")
-    print(f"95% of predictions within: {np.percentile(error, 95):.2f} hours")
+print("\n===== Accuracy Distribution =====")
+print(f"Total rows scored: {len(error)}")
+print(f"MAE: {np.mean(error):.2f} hours")
+print(f"Median absolute error: {np.median(error):.2f} hours")
+
+print(f"% within 1 hour: {np.mean(error <= 1) * 100:.1f}%")
+print(f"% within 2 hours: {np.mean(error <= 2) * 100:.1f}%")
+print(f"% within 3 hours: {np.mean(error <= 3) * 100:.1f}%")
+
+print(f"90% of predictions within: {np.percentile(error, 90):.2f} hours")
+print(f"95% of predictions within: {np.percentile(error, 95):.2f} hours")
+
+print("\n===== Relative Error (Percentage of Actual Hours) =====")
+print(f"Mean % error: {np.nanmean(pct_error):.2f}%")
+print(f"Median % error: {np.nanmedian(pct_error):.2f}%")
+print(f"% within 10%: {np.nanmean(pct_error <= 10) * 100:.1f}%")
+print(f"% within 20%: {np.nanmean(pct_error <= 20) * 100:.1f}%")
+print(f"% within 30%: {np.nanmean(pct_error <= 30) * 100:.1f}%")
+print(f"90% of predictions within: {np.nanpercentile(pct_error, 90):.2f}%")
+print(f"95% of predictions within: {np.nanpercentile(pct_error, 95):.2f}%")
+
+# --------------------------------------------------
+# Business-friendly breakdown by hour-error bucket
+# This answers: "1, 2, 3 hours off... on projects of what size?"
+# --------------------------------------------------
+summary_df = pd.DataFrame({
+    "actual_hours": y_true.values,
+    "predicted_hours": y_pred.values,
+    "abs_error_hours": error.values,
+    "pct_error": pct_error
+})
+
+bucket_definitions = [
+    ("≤ 1 hour off", summary_df["abs_error_hours"] <= 1),
+    ("1–2 hours off", (summary_df["abs_error_hours"] > 1) & (summary_df["abs_error_hours"] <= 2)),
+    ("2–3 hours off", (summary_df["abs_error_hours"] > 2) & (summary_df["abs_error_hours"] <= 3)),
+    ("3–7 hours off", (summary_df["abs_error_hours"] > 3) & (summary_df["abs_error_hours"] <= 7)),
+    ("> 7 hours off", summary_df["abs_error_hours"] > 7),
+]
+
+print("\n===== Error Buckets with Project Size Context =====")
+for label, condition in bucket_definitions:
+    group = summary_df[condition]
+    if len(group) == 0:
+        print(f"{label}: 0 rows")
+        continue
+
+    print(f"\n{label}")
+    print(f"Count: {len(group)} ({len(group) / len(summary_df) * 100:.1f}%)")
+    print(f"Average actual project hours: {group['actual_hours'].mean():.2f}")
+    print(f"Median actual project hours: {group['actual_hours'].median():.2f}")
+    print(f"Average absolute error: {group['abs_error_hours'].mean():.2f} hours")
+    print(f"Average % error: {group['pct_error'].mean():.2f}%")
+    print(f"Median % error: {group['pct_error'].median():.2f}%")
+
 
