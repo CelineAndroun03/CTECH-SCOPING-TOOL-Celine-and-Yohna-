@@ -5,12 +5,11 @@ import pandas as pd
 import os
 from scripts.predict import predict_hours
 
-app = FastAPI(title="CTECH Effort Estimation API")
+app = FastAPI(title="CTECH Effort Estimation API - Predict Engineering Actual Hours")
 
 # ============================================================
 # REQUEST MODEL
 # ============================================================
-
 class PredictionInput(BaseModel):
     standard_count: float
     total_CB_count: float
@@ -39,36 +38,19 @@ def transform_input(data):
 
     return df
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
+# # ============================================================
+# # HEALTH CHECK
+# # ============================================================
 
-@app.get("/")
-def health():
-    return {"status": "API is running"}
-
-# ============================================================
-# SINGLE PREDICTION
-# ============================================================
-
-@app.post("/predict")
-def predict(input_data: PredictionInput):
-    try:
-        df = transform_input([input_data.dict()])
-        result = predict_hours(df)
-
-        return {
-            "prediction": float(result["predicted_Eng_AH"].iloc[0])
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/")
+# def health():
+#     return {"status": "API is running"}
 
 # ============================================================
 # BATCH PREDICTION
 # ============================================================
 
-@app.post("/predict-batch")
+@app.post("/Predict Eng Hours", tags=["Predictions"])
 def predict_batch(input_data: List[PredictionInput]):
     try:
         df = transform_input([item.dict() for item in input_data])

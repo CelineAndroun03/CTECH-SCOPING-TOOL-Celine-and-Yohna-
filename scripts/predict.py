@@ -142,31 +142,44 @@ def predict_hours(df: pd.DataFrame) -> pd.DataFrame:
 # TEST RUN
 # ============================================================
 
+
 if __name__ == "__main__":
-    sample_input = pd.DataFrame([
-        {
-            "standard_count": 1,
-            "total_CB_count": 2,
-            "total_test_count": 3,
-            "Region": "AMERICAS",
-            "Investigation_type": "2 - Class III",
-            "type_of_investigation": "1 - Full Investigation",
-            "CCN_Data Hub": "AALL",
-            "1 (60950-1)": 1
-        },
-        {
-            "standard_count": 2,
-            "total_CB_count": 1,
-            "total_test_count": 4,
-            "Region": "ASIA",
-            "Investigation_type": "3 - Power Supply",
-            "type_of_investigation": "3 - Alternate Construction",
-            "CCN_Data Hub": "AZOT",
-            "1 (60950-1)": 0
-        }
-    ])
+    # Load full dataset
+    data_path = os.path.join(BASE_DIR, "Code", "1. Exploratory Data Analysis", "Final_data_Ctech.xlsx")
+    df = pd.read_excel(data_path)
+    print("\n===== Raw Dataset Info =====")
+    print(f"Dataset shape: {df.shape}")
+    print(f"Rows: {df.shape[0]} | Columns: {df.shape[1]}")
 
-    predictions = predict_hours(sample_input)
 
-    print("\nPredictions:")
-    print(predictions.to_string(index=False))
+    print("Loaded data shape:", df.shape)
+    print("Columns:", df.columns.tolist())
+
+    # Keep only rows where actual Eng. AH exists
+    df = df.dropna(subset=["Eng. AH"]).copy()
+
+    # Run predictions
+    predictions = predict_hours(df)
+
+    print("\nPredictions sample:")
+    print(predictions[["predicted_Eng_AH"]].head().to_string(index=False))
+
+    # --------------------------------------------------
+    # Accuracy evaluation
+    # --------------------------------------------------
+    y_true = pd.to_numeric(df["Eng. AH"], errors="coerce")
+    y_pred = pd.to_numeric(predictions["predicted_Eng_AH"], errors="coerce")
+
+    error = np.abs(y_true - y_pred)
+
+    print("\n===== Accuracy Distribution =====")
+    print(f"Total rows scored: {len(error)}")
+    print(f"MAE: {np.mean(error):.2f} hours")
+
+    print(f"% within 1 hour: {np.mean(error <= 1) * 100:.1f}%")
+    print(f"% within 2 hours: {np.mean(error <= 2) * 100:.1f}%")
+    print(f"% within 3 hours: {np.mean(error <= 3) * 100:.1f}%")
+
+    print(f"90% of predictions within: {np.percentile(error, 90):.2f} hours")
+    print(f"95% of predictions within: {np.percentile(error, 95):.2f} hours")
+
