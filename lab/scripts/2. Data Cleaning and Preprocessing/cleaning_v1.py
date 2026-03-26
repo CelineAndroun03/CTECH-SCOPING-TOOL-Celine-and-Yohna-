@@ -63,8 +63,16 @@ print("###############################################################")
 print("####################### Data Cleaning #########################")
 print("###############################################################")
 
-# Remove Unecessary Features
-data = data.drop(columns=["Eng. SH", "Lab. SH", "Eng. AH", "22 (Derek Understand when used)"])
+ # Remove Unecessary Features
+data = data.drop(columns = [
+    "9 (Talk to Derek)",
+    "11 (Ask Derek if IEC/EN 62368-3 covers this)",
+    "20 (Iteration of Tests ASK Derek)",
+    "29 (Talk to Derek)",
+    "27 (Change Enc Func)"
+], errors='ignore')
+
+
 
 # Remove Duplicates
 data = data.drop_duplicates()
@@ -228,7 +236,15 @@ data = data.drop(columns=cols_to_drop, errors="ignore")
 print("\nDropped", len(cols_to_drop), "columns.")
 
 # Delete unkown columns
-data = data.drop(columns = ["9 (Talk to Derek)","11 (Ask Derek if  IEC/EN 62368-3  covers this)",' 20 (Iteration of Tests ASK Derek)', '29 (Talk to Derek)','27 (Change Enc Func)'])
+data = data.drop(columns = [
+    "9 (Talk to Derek)",
+    "11 (Ask Derek if IEC/EN 62368-3 covers this)",
+    "20 (Iteration of Tests ASK Derek)",
+    "29 (Talk to Derek)",
+    "27 (Change Enc Func)"
+], errors='ignore')
+
+
 
 # Check multicollinearity
 print("\n==================================================")
@@ -690,7 +706,7 @@ def compute_zero_gate_mask(df: pd.DataFrame) -> pd.Series:
 
 def metrics(name, y_true, y_pred):
     y_pred = np.clip(np.asarray(y_pred), a_min=0.0, a_max=None)
-    rmse = mean_squared_error(y_true, y_pred, squared=False)
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
     mae  = mean_absolute_error(y_true, y_pred)
     r2   = r2_score(y_true, y_pred)
     print(f"{name:>12s}  R2={r2:.3f}  RMSE={rmse:.3f}h  MAE={mae:.3f}h")
@@ -839,15 +855,15 @@ def run_two_split_eval(df_in: pd.DataFrame,
 
     # MODEL 3 — LightGBM (hours)
     print("\n===================== MODEL 3: LightGBM (positives) =====================")
-    model3 = LGBMRegressor(
-        n_estimators=3000, learning_rate=0.03, max_depth=-1,
-        subsample=0.7, colsample_bytree=0.7, reg_lambda=2.0,
-        random_state=random_state
-    )
-    model3.fit(X_train, y_train)
-    p3_tr = model3.predict(X_train); p3_va = model3.predict(X_val); p3_te = model3.predict(X_test)
-    results["LGBM"] = {"p_tr": p3_tr, "p_va": p3_va, "p_te": p3_te}
-    metrics("Pos-Train", y_train, p3_tr); metrics("Pos-Val", y_val, p3_va); metrics("Pos-Test", y_test, p3_te)
+    # model3 = LGBMRegressor(
+    #     n_estimators=3000, learning_rate=0.03, max_depth=-1,
+    #     subsample=0.7, colsample_bytree=0.7, reg_lambda=2.0,
+    #     random_state=random_state
+    # )
+    # model3.fit(X_train, y_train)
+    # p3_tr = model3.predict(X_train); p3_va = model3.predict(X_val); p3_te = model3.predict(X_test)
+    # results["LGBM"] = {"p_tr": p3_tr, "p_va": p3_va, "p_te": p3_te}
+    # metrics("Pos-Train", y_train, p3_tr); metrics("Pos-Val", y_val, p3_va); metrics("Pos-Test", y_test, p3_te)
 
     # MODEL 4 — RandomForest (hours)
     print("\n===================== MODEL 4: RandomForest (positives) =====================")
