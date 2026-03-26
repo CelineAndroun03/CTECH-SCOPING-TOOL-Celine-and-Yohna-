@@ -1,3 +1,20 @@
+import pandas as pd
+import numpy as np
+import warnings
+import sys
+from pathlib import Path
+
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.dummy import DummyRegressor
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
+
+sys.path.append(str(Path(__file__).resolve().parents[1] / "2. Data Cleaning and Preprocessing"))
+from cleaning_eng import X_final, y
+
+
 ###############################################################################
 ####################### MODEL TRAINING EVALUATION #############################
 ##############################################################################

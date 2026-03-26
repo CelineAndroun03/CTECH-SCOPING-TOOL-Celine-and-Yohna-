@@ -4,7 +4,6 @@ import joblib
 import numpy as np
 import pandas as pd
 
-
 # ============================================================
 # PATHS
 # ============================================================
@@ -167,175 +166,175 @@ if __name__ == "__main__":
 # --------------------------------------------------
 # Accuracy evaluation
 # --------------------------------------------------
-y_true = pd.to_numeric(df["Eng. AH"], errors="coerce")
-y_pred = pd.to_numeric(predictions["predicted_Eng_AH"], errors="coerce")
+    y_true = pd.to_numeric(df["Eng. AH"], errors="coerce")
+    y_pred = pd.to_numeric(predictions["predicted_Eng_AH"], errors="coerce")
 
-# Drop bad rows if any
-mask = y_true.notna() & y_pred.notna()
-y_true = y_true[mask]
-y_pred = y_pred[mask]
+    # Drop bad rows if any
+    mask = y_true.notna() & y_pred.notna()
+    y_true = y_true[mask]
+    y_pred = y_pred[mask]
 
-# Absolute error in hours
-error = np.abs(y_true - y_pred)
+    # Absolute error in hours
+    error = np.abs(y_true - y_pred)
 
-# Relative error as % of actual hours
-# Avoid divide-by-zero if any actual hours are 0
-pct_error = np.where(y_true != 0, (error / y_true) * 100, np.nan)
+    # Relative error as % of actual hours
+    # Avoid divide-by-zero if any actual hours are 0
+    pct_error = np.where(y_true != 0, (error / y_true) * 100, np.nan)
 
-print("\n===== Accuracy Distribution =====")
-print(f"Total rows scored: {len(error)}")
-print(f"MAE: {np.mean(error):.2f} hours")
-print(f"Median absolute error: {np.median(error):.2f} hours")
+    print("\n===== Accuracy Distribution =====")
+    print(f"Total rows scored: {len(error)}")
+    print(f"MAE: {np.mean(error):.2f} hours")
+    print(f"Median absolute error: {np.median(error):.2f} hours")
 
-print(f"% within 1 hour: {np.mean(error <= 1) * 100:.1f}%")
-print(f"% within 2 hours: {np.mean(error <= 2) * 100:.1f}%")
-print(f"% within 3 hours: {np.mean(error <= 3) * 100:.1f}%")
+    print(f"% within 1 hour: {np.mean(error <= 1) * 100:.1f}%")
+    print(f"% within 2 hours: {np.mean(error <= 2) * 100:.1f}%")
+    print(f"% within 3 hours: {np.mean(error <= 3) * 100:.1f}%")
 
-print(f"90% of predictions within: {np.percentile(error, 90):.2f} hours")
-print(f"95% of predictions within: {np.percentile(error, 95):.2f} hours")
+    print(f"90% of predictions within: {np.percentile(error, 90):.2f} hours")
+    print(f"95% of predictions within: {np.percentile(error, 95):.2f} hours")
 
-print("\n===== Relative Error (Percentage of Actual Hours) =====")
-print(f"Mean % error: {np.nanmean(pct_error):.2f}%")
-print(f"Median % error: {np.nanmedian(pct_error):.2f}%")
-print(f"% within 10%: {np.nanmean(pct_error <= 10) * 100:.1f}%")
-print(f"% within 20%: {np.nanmean(pct_error <= 20) * 100:.1f}%")
-print(f"% within 30%: {np.nanmean(pct_error <= 30) * 100:.1f}%")
-print(f"90% of predictions within: {np.nanpercentile(pct_error, 90):.2f}%")
-print(f"95% of predictions within: {np.nanpercentile(pct_error, 95):.2f}%")
+    print("\n===== Relative Error (Percentage of Actual Hours) =====")
+    print(f"Mean % error: {np.nanmean(pct_error):.2f}%")
+    print(f"Median % error: {np.nanmedian(pct_error):.2f}%")
+    print(f"% within 10%: {np.nanmean(pct_error <= 10) * 100:.1f}%")
+    print(f"% within 20%: {np.nanmean(pct_error <= 20) * 100:.1f}%")
+    print(f"% within 30%: {np.nanmean(pct_error <= 30) * 100:.1f}%")
+    print(f"90% of predictions within: {np.nanpercentile(pct_error, 90):.2f}%")
+    print(f"95% of predictions within: {np.nanpercentile(pct_error, 95):.2f}%")
 
-# --------------------------------------------------
-# Business-friendly breakdown by hour-error bucket
-# This answers: "1, 2, 3 hours off... on projects of what size?"
-# --------------------------------------------------
+    # --------------------------------------------------
+    # Business-friendly breakdown by hour-error bucket
+    # This answers: "1, 2, 3 hours off... on projects of what size?"
+    # --------------------------------------------------
 
-print("100% of the dataset results")
-summary_df = pd.DataFrame({
-    "actual_hours": y_true.values,
-    "predicted_hours": y_pred.values,
-    "abs_error_hours": error.values,
-    "pct_error": pct_error
-})
+    print("100% of the dataset results")
+    summary_df = pd.DataFrame({
+        "actual_hours": y_true.values,
+        "predicted_hours": y_pred.values,
+        "abs_error_hours": error.values,
+        "pct_error": pct_error
+    })
 
-bucket_definitions = [
-    ("≤ 1 hour off", summary_df["abs_error_hours"] <= 1),
-    ("1–2 hours off", (summary_df["abs_error_hours"] > 1) & (summary_df["abs_error_hours"] <= 2)),
-    ("2–3 hours off", (summary_df["abs_error_hours"] > 2) & (summary_df["abs_error_hours"] <= 3)),
-    ("3–7 hours off", (summary_df["abs_error_hours"] > 3) & (summary_df["abs_error_hours"] <= 7)),
-    ("> 7 hours off", summary_df["abs_error_hours"] > 7),
-]
+    bucket_definitions = [
+        ("≤ 1 hour off", summary_df["abs_error_hours"] <= 1),
+        ("1–2 hours off", (summary_df["abs_error_hours"] > 1) & (summary_df["abs_error_hours"] <= 2)),
+        ("2–3 hours off", (summary_df["abs_error_hours"] > 2) & (summary_df["abs_error_hours"] <= 3)),
+        ("3–7 hours off", (summary_df["abs_error_hours"] > 3) & (summary_df["abs_error_hours"] <= 7)),
+        ("> 7 hours off", summary_df["abs_error_hours"] > 7),
+    ]
 
-print("\n===== Error Buckets with Project Size Context =====")
-for label, condition in bucket_definitions:
-    group = summary_df[condition]
-    if len(group) == 0:
-        print(f"{label}: 0 rows")
-        continue
+    print("\n===== Error Buckets with Project Size Context =====")
+    for label, condition in bucket_definitions:
+        group = summary_df[condition]
+        if len(group) == 0:
+            print(f"{label}: 0 rows")
+            continue
 
-    print(f"\n{label}")
-    print(f"Count: {len(group)} ({len(group) / len(summary_df) * 100:.1f}%)")
-    print(f"Average actual project hours: {group['actual_hours'].mean():.2f}")
-    print(f"Median actual project hours: {group['actual_hours'].median():.2f}")
-    print(f"Median Predicted project hours: {group['predicted_hours'].median(): .2f}")
-    print(f"Average absolute error: {group['abs_error_hours'].mean():.2f} hours")
-    print(f"Average % error: {group['pct_error'].mean():.2f}%")
-    print(f"Median % error: {group['pct_error'].median():.2f}%")
+        print(f"\n{label}")
+        print(f"Count: {len(group)} ({len(group) / len(summary_df) * 100:.1f}%)")
+        print(f"Average actual project hours: {group['actual_hours'].mean():.2f}")
+        print(f"Median actual project hours: {group['actual_hours'].median():.2f}")
+        print(f"Median Predicted project hours: {group['predicted_hours'].median(): .2f}")
+        print(f"Average absolute error: {group['abs_error_hours'].mean():.2f} hours")
+        print(f"Average % error: {group['pct_error'].mean():.2f}%")
+        print(f"Median % error: {group['pct_error'].median():.2f}%")
 
-print("70% of the dataset results")
+    print("70% of the dataset results")
 
-from sklearn.model_selection import train_test_split
+    from sklearn.model_selection import train_test_split
 
-df_train, df_unseen = train_test_split(df, test_size=0.30, random_state=42)
-predictions_train = predict_hours(df_train)
-predictions_unseen = predict_hours(df_unseen)
+    df_train, df_unseen = train_test_split(df, test_size=0.30, random_state=42)
+    predictions_train = predict_hours(df_train)
+    predictions_unseen = predict_hours(df_unseen)
 
-# =========================================================
-# 70% of the dataset results (USED IN TRAINING)
-# =========================================================
-print("\n70% of the dataset results")
+    # =========================================================
+    # 70% of the dataset results (USED IN TRAINING)
+    # =========================================================
+    print("\n70% of the dataset results")
 
-y_true_train = pd.to_numeric(df_train["Eng. AH"], errors="coerce")
-y_pred_train = pd.to_numeric(predictions_train["predicted_Eng_AH"], errors="coerce")
+    y_true_train = pd.to_numeric(df_train["Eng. AH"], errors="coerce")
+    y_pred_train = pd.to_numeric(predictions_train["predicted_Eng_AH"], errors="coerce")
 
-mask_train = y_true_train.notna() & y_pred_train.notna()
-y_true_train = y_true_train[mask_train]
-y_pred_train = y_pred_train[mask_train]
+    mask_train = y_true_train.notna() & y_pred_train.notna()
+    y_true_train = y_true_train[mask_train]
+    y_pred_train = y_pred_train[mask_train]
 
-error_train = np.abs(y_true_train - y_pred_train)
-pct_error_train = np.where(y_true_train != 0, (error_train / y_true_train) * 100, np.nan)
+    error_train = np.abs(y_true_train - y_pred_train)
+    pct_error_train = np.where(y_true_train != 0, (error_train / y_true_train) * 100, np.nan)
 
-summary_df_train = pd.DataFrame({
-    "actual_hours": y_true_train.values,
-    "predicted_hours": y_pred_train.values,
-    "abs_error_hours": error_train.values,
-    "pct_error": pct_error_train
-})
+    summary_df_train = pd.DataFrame({
+        "actual_hours": y_true_train.values,
+        "predicted_hours": y_pred_train.values,
+        "abs_error_hours": error_train.values,
+        "pct_error": pct_error_train
+    })
 
-bucket_definitions_train = [
-    ("<1 hour", summary_df_train["abs_error_hours"] <= 1),
-    ("1-2 hours", (summary_df_train["abs_error_hours"] > 1) & (summary_df_train["abs_error_hours"] <= 2)),
-    ("2-3 hours", (summary_df_train["abs_error_hours"] > 2) & (summary_df_train["abs_error_hours"] <= 3)),
-    ("3-7 hours", (summary_df_train["abs_error_hours"] > 3) & (summary_df_train["abs_error_hours"] <= 7)),
-    (">7 hours", summary_df_train["abs_error_hours"] > 7),
-]
+    bucket_definitions_train = [
+        ("<1 hour", summary_df_train["abs_error_hours"] <= 1),
+        ("1-2 hours", (summary_df_train["abs_error_hours"] > 1) & (summary_df_train["abs_error_hours"] <= 2)),
+        ("2-3 hours", (summary_df_train["abs_error_hours"] > 2) & (summary_df_train["abs_error_hours"] <= 3)),
+        ("3-7 hours", (summary_df_train["abs_error_hours"] > 3) & (summary_df_train["abs_error_hours"] <= 7)),
+        (">7 hours", summary_df_train["abs_error_hours"] > 7),
+    ]
 
-print("\n===== Error Buckets with Project Size Context: 70% Training =====")
-for label, condition in bucket_definitions_train:
-    group = summary_df_train[condition]
+    print("\n===== Error Buckets with Project Size Context: 70% Training =====")
+    for label, condition in bucket_definitions_train:
+        group = summary_df_train[condition]
 
-    if len(group) == 0:
-        print(f"{label}: 0 rows")
-        continue
+        if len(group) == 0:
+            print(f"{label}: 0 rows")
+            continue
 
-    print(f"\n{label}")
-    print(f"Count: {len(group)} ({len(group) / len(summary_df_train) * 100:.1f}%)")
-    print(f"Average actual project hours: {group['actual_hours'].mean():.2f}")
-    print(f"Median actual project hours: {group['actual_hours'].median():.2f}")
-    print(f"Average predicted project hours: {group['predicted_hours'].mean():.2f}")
-    print(f"Median predicted project hours: {group['predicted_hours'].median():.2f}")
+        print(f"\n{label}")
+        print(f"Count: {len(group)} ({len(group) / len(summary_df_train) * 100:.1f}%)")
+        print(f"Average actual project hours: {group['actual_hours'].mean():.2f}")
+        print(f"Median actual project hours: {group['actual_hours'].median():.2f}")
+        print(f"Average predicted project hours: {group['predicted_hours'].mean():.2f}")
+        print(f"Median predicted project hours: {group['predicted_hours'].median():.2f}")
 
 
-# =========================================================
-# 30% of the dataset results (NOT USED IN TRAINING / UNSEEN)
-# =========================================================
-print("\n30% of the dataset results")
+    # =========================================================
+    # 30% of the dataset results (NOT USED IN TRAINING / UNSEEN)
+    # =========================================================
+    print("\n30% of the dataset results")
 
-y_true_unseen = pd.to_numeric(df_unseen["Eng. AH"], errors="coerce")
-y_pred_unseen = pd.to_numeric(predictions_unseen["predicted_Eng_AH"], errors="coerce")
+    y_true_unseen = pd.to_numeric(df_unseen["Eng. AH"], errors="coerce")
+    y_pred_unseen = pd.to_numeric(predictions_unseen["predicted_Eng_AH"], errors="coerce")
 
-mask_unseen = y_true_unseen.notna() & y_pred_unseen.notna()
-y_true_unseen = y_true_unseen[mask_unseen]
-y_pred_unseen = y_pred_unseen[mask_unseen]
+    mask_unseen = y_true_unseen.notna() & y_pred_unseen.notna()
+    y_true_unseen = y_true_unseen[mask_unseen]
+    y_pred_unseen = y_pred_unseen[mask_unseen]
 
-error_unseen = np.abs(y_true_unseen - y_pred_unseen)
-pct_error_unseen = np.where(y_true_unseen != 0, (error_unseen / y_true_unseen) * 100, np.nan)
+    error_unseen = np.abs(y_true_unseen - y_pred_unseen)
+    pct_error_unseen = np.where(y_true_unseen != 0, (error_unseen / y_true_unseen) * 100, np.nan)
 
-summary_df_unseen = pd.DataFrame({
-    "actual_hours": y_true_unseen.values,
-    "predicted_hours": y_pred_unseen.values,
-    "abs_error_hours": error_unseen.values,
-    "pct_error": pct_error_unseen
-})
+    summary_df_unseen = pd.DataFrame({
+        "actual_hours": y_true_unseen.values,
+        "predicted_hours": y_pred_unseen.values,
+        "abs_error_hours": error_unseen.values,
+        "pct_error": pct_error_unseen
+    })
 
-bucket_definitions_unseen = [
-    ("<1 hour", summary_df_unseen["abs_error_hours"] <= 1),
-    ("1-2 hours", (summary_df_unseen["abs_error_hours"] > 1) & (summary_df_unseen["abs_error_hours"] <= 2)),
-    ("2-3 hours", (summary_df_unseen["abs_error_hours"] > 2) & (summary_df_unseen["abs_error_hours"] <= 3)),
-    ("3-7 hours", (summary_df_unseen["abs_error_hours"] > 3) & (summary_df_unseen["abs_error_hours"] <= 7)),
-    (">7 hours", summary_df_unseen["abs_error_hours"] > 7),
-]
+    bucket_definitions_unseen = [
+        ("<1 hour", summary_df_unseen["abs_error_hours"] <= 1),
+        ("1-2 hours", (summary_df_unseen["abs_error_hours"] > 1) & (summary_df_unseen["abs_error_hours"] <= 2)),
+        ("2-3 hours", (summary_df_unseen["abs_error_hours"] > 2) & (summary_df_unseen["abs_error_hours"] <= 3)),
+        ("3-7 hours", (summary_df_unseen["abs_error_hours"] > 3) & (summary_df_unseen["abs_error_hours"] <= 7)),
+        (">7 hours", summary_df_unseen["abs_error_hours"] > 7),
+    ]
 
-print("\n===== Error Buckets with Project Size Context: 30% Unseen =====")
-for label, condition in bucket_definitions_unseen:
-    group = summary_df_unseen[condition]
+    print("\n===== Error Buckets with Project Size Context: 30% Unseen =====")
+    for label, condition in bucket_definitions_unseen:
+        group = summary_df_unseen[condition]
 
-    if len(group) == 0:
-        print(f"{label}: 0 rows")
-        continue
+        if len(group) == 0:
+            print(f"{label}: 0 rows")
+            continue
 
-    print(f"\n{label}")
-    print(f"Count: {len(group)} ({len(group) / len(summary_df_unseen) * 100:.1f}%)")
-    print(f"Average actual project hours: {group['actual_hours'].mean():.2f}")
-    print(f"Median actual project hours: {group['actual_hours'].median():.2f}")
-    print(f"Average predicted project hours: {group['predicted_hours'].mean():.2f}")
-    print(f"Median predicted project hours: {group['predicted_hours'].median():.2f}")
+        print(f"\n{label}")
+        print(f"Count: {len(group)} ({len(group) / len(summary_df_unseen) * 100:.1f}%)")
+        print(f"Average actual project hours: {group['actual_hours'].mean():.2f}")
+        print(f"Median actual project hours: {group['actual_hours'].median():.2f}")
+        print(f"Average predicted project hours: {group['predicted_hours'].mean():.2f}")
+        print(f"Median predicted project hours: {group['predicted_hours'].median():.2f}")
 

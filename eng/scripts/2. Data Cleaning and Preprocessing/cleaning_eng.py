@@ -1,3 +1,46 @@
+# 1: Import Libraries
+from scipy.stats import skew
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error
+from sklearn.inspection import permutation_importance
+import matplotlib.pyplot as plt
+import pandas.api.types as ptypes
+import warnings
+import seaborn as sns
+from pandas.api.types import is_numeric_dtype
+from scipy.stats import kruskal
+from scipy.stats import mannwhitneyu
+import statsmodels.api as sm
+from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_selection import mutual_info_regression
+from xgboost import XGBRegressor
+from sklearn.tree import DecisionTreeRegressor
+from scipy.stats import spearmanr
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+from sklearn.feature_selection import RFECV
+from sklearn.metrics import mean_squared_error, make_scorer, mean_absolute_error, r2_score
+from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.dummy import DummyRegressor
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import RandomizedSearchCV
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
+
+# 2: Download Data
+from pathlib import Path
+
+file_path = Path(__file__).parent / "Final_data_Ctech.xlsx"
+data = pd.read_excel(file_path)
+print("Shape:", data.shape) # Prints (rows,columns)
+
 #########################################################################
 #################### Nuno cleaning block ################################
 

@@ -36,6 +36,7 @@ from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_BREAK
 from contextlib import redirect_stdout
+from pathlib import Path
 
 # Global display and warnings
 warnings.filterwarnings("ignore")
@@ -1044,8 +1045,12 @@ def main():
     # Artifacts tracker
     artifacts = ReportArtifacts(report_dir)
 
-    # Read data
-    df = read_data(input_path)
+
+    BASE_DIR = Path(__file__).resolve().parents[2]  # goes to lab/
+    file_path = BASE_DIR / "scripts/2. Data Cleaning and Preprocessing/1. Data.xlsx"
+
+    df = pd.read_excel(file_path)
+
 
     # Run EDA steps
     step_preliminary_info(df, artifacts=artifacts)

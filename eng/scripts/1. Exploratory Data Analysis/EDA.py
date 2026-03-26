@@ -38,7 +38,10 @@ pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
 
 # 2: Download Data
-data = pd.read_excel("Final_data_Ctech.xlsx")
+from pathlib import Path
+
+file_path = Path(__file__).parent / "Final_data_Ctech.xlsx"
+data = pd.read_excel(file_path)
 print("Shape:", data.shape) #Prints (rows,columns)
 
 

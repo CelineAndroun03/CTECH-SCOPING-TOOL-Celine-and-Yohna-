@@ -45,6 +45,7 @@ from scipy.stats import chi2_contingency
 from scipy.stats import mannwhitneyu
 from scipy.stats import kruskal
 from scipy.stats import spearmanr
+from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 pd.set_option("display.max_columns", None)
@@ -53,7 +54,10 @@ pd.set_option("display.max_rows", None)
 # ==================================================
 # 1. Import Data
 # ==================================================
-data = pd.read_excel("1. Data.xlsx")
+BASE_DIR = Path(__file__).resolve().parents[2]
+file_path = BASE_DIR / "scripts/2. Data Cleaning and Preprocessing/1. Data.xlsx"
+
+data = pd.read_excel(file_path)
 
 # ==================================================
 # 2. Data Cleaning
