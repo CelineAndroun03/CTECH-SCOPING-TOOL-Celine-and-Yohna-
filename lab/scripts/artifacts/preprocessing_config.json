@@ -1,0 +1,22 @@
+{
+  "target_col": "Lab. AH",
+  "selected_features": [
+    "1 (60950-1)",
+    "Lab. SH",
+    "standard_count",
+    "total_CB_count",
+    "total_test_count"
+  ],
+  "numeric_cols": [
+    "Lab. AH",
+    "1 (60950-1)",
+    "Lab. SH",
+    "standard_count",
+    "total_CB_count",
+    "total_test_count"
+  ],
+  "total_cb_binary": true,
+  "standard_count_int": true,
+  "lab_sh_fillna_zero": true,
+  "feature_version": "LAB_V1"
+}

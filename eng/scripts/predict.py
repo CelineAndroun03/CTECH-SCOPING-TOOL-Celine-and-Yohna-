@@ -338,3 +338,100 @@ if __name__ == "__main__":
         print(f"Average predicted project hours: {group['predicted_hours'].mean():.2f}")
         print(f"Median predicted project hours: {group['predicted_hours'].median():.2f}")
 
+
+    print("\n\n========== TYPE OF INVESTIGATION TEST ==========")
+
+    investigation_scenarios = [
+        "1 - Full Investigation",
+        "2 - Full Investigation + Alternate Construction",
+        "3 - Alternate Construction",
+        "4 - Administrative No Test anticipated (revisions requiring Engineering Review)",
+        "5 - Administrative CB review"
+    ]
+
+    scenario_results = []
+
+    # full dataset copy
+    df_base = df.copy()
+
+    if "type_of_investigation" not in df_base.columns:
+        raise ValueError("Column 'type_of_investigation' not found in dataset.")
+
+    # baseline predictions using original values
+    baseline_preds = predict_hours(df_base)
+    baseline_vals = pd.to_numeric(baseline_preds["predicted_Eng_AH"], errors="coerce")
+
+    scenario_results.append({
+        "scenario": "Original Dataset Values",
+        "avg_predicted_hours": baseline_vals.mean(),
+        "median_predicted_hours": baseline_vals.median()
+    })
+
+    # force each investigation type across the whole dataset
+    for inv in investigation_scenarios:
+        df_test = df_base.copy()
+        df_test["type_of_investigation"] = inv
+
+        preds = predict_hours(df_test)
+        pred_vals = pd.to_numeric(preds["predicted_Eng_AH"], errors="coerce")
+
+        scenario_results.append({
+            "scenario": inv,
+            "avg_predicted_hours": pred_vals.mean(),
+            "median_predicted_hours": pred_vals.median()
+        })
+
+    scenario_df = pd.DataFrame(scenario_results)
+
+    # compare against original dataset values
+    baseline_avg = scenario_df.loc[
+        scenario_df["scenario"] == "Original Dataset Values",
+        "avg_predicted_hours"
+    ].values[0]
+
+    scenario_df["pct_diff_avg_vs_original"] = (
+        (scenario_df["avg_predicted_hours"] - baseline_avg) / baseline_avg
+    ) * 100
+
+    # clean column names for output
+    scenario_df = scenario_df.rename(columns={
+        "scenario": "Scenario",
+        "avg_predicted_hours": "Avg Hours",
+        "median_predicted_hours": "Median Hours",
+        "pct_diff_avg_vs_original": "% Change vs Original"
+    })
+
+    print("\nScenario comparison:")
+    print(scenario_df.round(2).to_string(index=False))
+
+    print("\n========== ACTUAL TYPE OF INVESTIGATION COUNTS ==========")
+
+    counts = (
+        df["type_of_investigation"]
+        .astype(str)
+        .str.strip()
+        .value_counts()
+    )
+
+    percent = (counts / len(df)) * 100
+
+    distribution_df = pd.DataFrame({
+        "count": counts,
+        "percent": percent
+    }).sort_values(by="count", ascending=False)
+
+    print(distribution_df.round(2).to_string())
+    print(f"\nTotal rows: {len(df)}")
+
+    print("\n========== IN REAL LIFE HOW MANY HOURS DO THESE ACTUALLY TAKE?==========")
+
+    grouped = df.groupby("type_of_investigation")["Eng. AH"].agg([
+        "count",
+        "mean",
+        "median",
+        "min",
+        "max"
+    ]).sort_values(by="mean", ascending=False)
+
+    print(grouped.round(2).to_string())
+
