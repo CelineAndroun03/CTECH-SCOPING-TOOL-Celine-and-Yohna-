@@ -8,29 +8,21 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from xgboost import XGBRegressor
 
-
 # ============================================================
 # PATHS / SETTINGS
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# This script lives in:
-# lab/scripts/train_final_xgb.py
-#
-# We want the cleaned V1 dataset from:
-# lab/scripts/2. Data Cleaning and Preprocessing/Data v2.xlsx
-DATA_FILE = os.path.join(
-    BASE_DIR,
-    "2. Data Cleaning and Preprocessing",
-    "Data v2.xlsx"
-)
+# Cleaned file created by cleaning_v1.py
+DATA_FILE = os.path.join(BASE_DIR, "artifacts", "lab_cleaned_final.xlsx")
 
-# Save model artifacts here:
-# lab/scripts/artifacts/
+# Save trained model artifacts here
 ARTIFACT_DIR = os.path.join(BASE_DIR, "artifacts")
+os.makedirs(ARTIFACT_DIR, exist_ok=True)
 
 TARGET_COL = "Lab. AH"
+LOG_TARGET_COL = "Lab_AH_log"
 RANDOM_STATE = 42
 
 FINAL_XGB_PARAMS = {
@@ -44,41 +36,30 @@ FINAL_XGB_PARAMS = {
 }
 
 # ============================================================
-# FINAL SELECTED FEATURES FOR LAB (V1)
+# FINAL SELECTED FEATURES FOR LAB (4-INPUT TEST)
 # ============================================================
-# These are the 5 features you said he chose.
-# If your actual final_features.csv has a different list,
-# update this section later.
+
 SELECTED_FEATURES = [
-    "1 (60950-1)",
-    "Lab. SH",
     "standard_count",
     "total_CB_count",
-    "total_test_count"
+    "total_test_count",
+    "1 (60950-1)"
 ]
 
 NUMERIC_COLS = [
-    TARGET_COL,
-    "1 (60950-1)",
-    "Lab. SH",
     "standard_count",
     "total_CB_count",
-    "total_test_count"
+    "total_test_count",
+    "1 (60950-1)"
 ]
-
 
 # ============================================================
 # UTILITIES
 # ============================================================
 
-def ensure_artifact_dir(path: str) -> None:
-    os.makedirs(path, exist_ok=True)
-
-
 def save_json(obj, filepath: str) -> None:
     with open(filepath, "w") as f:
-        json.dump(obj, f, indent=2)
-
+        json.dump(obj, f, indent=4)
 
 def validate_required_columns(df: pd.DataFrame, required_cols: list) -> None:
     missing = [col for col in required_cols if col not in df.columns]
@@ -86,47 +67,32 @@ def validate_required_columns(df: pd.DataFrame, required_cols: list) -> None:
         raise ValueError(
             "These required columns are missing from the training dataset:\n"
             + "\n".join(missing)
-            + "\n\nRun cleaning_v1.py again and make sure you are using the V1-generated Data v2.xlsx."
         )
 
-
 def prepare_target(df: pd.DataFrame) -> pd.Series:
-    """
-    V1 cleaning already log1p-transforms Lab. AH.
-    So the target here is already on the log scale.
-    """
-    return pd.to_numeric(df[TARGET_COL], errors="coerce")
+    return pd.to_numeric(df[LOG_TARGET_COL], errors="coerce")
 
-
-def fit_preprocessor(df_train: pd.DataFrame) -> dict:
-    """
-    Freeze preprocessing settings for prediction later.
-    """
+def fit_preprocessor() -> dict:
     config = {
         "target_col": TARGET_COL,
+        "log_target_col": LOG_TARGET_COL,
         "selected_features": SELECTED_FEATURES,
         "numeric_cols": NUMERIC_COLS,
         "total_cb_binary": True,
         "standard_count_int": True,
-        "lab_sh_fillna_zero": True,
-        "feature_version": "LAB_V1"
+        "feature_version": "LAB_4_INPUT_TEST"
     }
     return config
 
-
 def preprocess_features(df: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """
-    Apply the same preprocessing used during training.
-    This version only uses the selected direct-input features.
-    """
     temp = df.copy()
 
-    # Convert known numeric columns
+    # Convert numeric columns
     for col in config["numeric_cols"]:
         if col in temp.columns:
             temp[col] = pd.to_numeric(temp[col], errors="coerce")
 
-    # Match intended feature engineering
+    # Match cleaning / prediction logic exactly
     if "total_CB_count" in temp.columns and config.get("total_cb_binary", False):
         temp["total_CB_count"] = (temp["total_CB_count"].fillna(0) > 0).astype(int)
 
@@ -137,25 +103,15 @@ def preprocess_features(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         temp["total_test_count"] = temp["total_test_count"].fillna(0)
 
     if "1 (60950-1)" in temp.columns:
-        temp["1 (60950-1)"] = temp["1 (60950-1)"].fillna(0)
+        temp["1 (60950-1)"] = temp["1 (60950-1)"].fillna(0).astype(int)
 
-    if "Lab. SH" in temp.columns and config.get("lab_sh_fillna_zero", False):
-        temp["Lab. SH"] = temp["Lab. SH"].fillna(0)
-
-    # Force exact feature set and order
+    # Force exact feature order
     X = temp.reindex(columns=config["selected_features"], fill_value=0).copy()
-
-    # Final cleanup
     X = X.fillna(0)
 
     return X
 
-
 def evaluate_model(model, X: pd.DataFrame, y_log: pd.Series) -> dict:
-    """
-    Evaluate on log target, but report MAE/RMSE back in real hours.
-    Since y is log1p(hours), invert with expm1.
-    """
     pred_log = model.predict(X)
 
     r2_log = r2_score(y_log, pred_log)
@@ -172,11 +128,7 @@ def evaluate_model(model, X: pd.DataFrame, y_log: pd.Series) -> dict:
         "RMSE_hours": float(rmse_hours)
     }
 
-
 def predict_from_dataframe(model, config: dict, df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Helper for demo predictions after training.
-    """
     X = preprocess_features(df, config)
     pred_log = model.predict(X)
     pred_hours = np.expm1(pred_log)
@@ -185,14 +137,13 @@ def predict_from_dataframe(model, config: dict, df: pd.DataFrame) -> pd.DataFram
     output["predicted_Lab_AH"] = pred_hours
     return output
 
-
 # ============================================================
 # MAIN
 # ============================================================
 
 def main():
     print("=" * 80)
-    print("FINAL LAB XGBOOST TRAINING PIPELINE (V1)")
+    print("FINAL LAB XGBOOST TRAINING PIPELINE (4-INPUT TEST)")
     print("=" * 80)
 
     print(f"BASE_DIR: {BASE_DIR}")
@@ -200,7 +151,7 @@ def main():
     print(f"ARTIFACT_DIR: {os.path.abspath(ARTIFACT_DIR)}")
 
     # --------------------------------------------------------
-    # 1) Load cleaned V1 data
+    # 1) Load cleaned data
     # --------------------------------------------------------
     if not os.path.exists(DATA_FILE):
         raise FileNotFoundError(
@@ -217,17 +168,16 @@ def main():
     print("After dropping duplicate rows:", data.shape)
 
     # --------------------------------------------------------
-    # 3) Validate required columns exist
+    # 3) Validate required columns
     # --------------------------------------------------------
-    required_cols = [TARGET_COL] + SELECTED_FEATURES
+    required_cols = [LOG_TARGET_COL] + SELECTED_FEATURES
     validate_required_columns(data, required_cols)
 
     # --------------------------------------------------------
     # 4) Clean target
     # --------------------------------------------------------
-    # V1 already log1p-transformed Lab. AH upstream
-    data[TARGET_COL] = pd.to_numeric(data[TARGET_COL], errors="coerce")
-    data = data.dropna(subset=[TARGET_COL]).copy()
+    data[LOG_TARGET_COL] = pd.to_numeric(data[LOG_TARGET_COL], errors="coerce")
+    data = data.dropna(subset=[LOG_TARGET_COL]).copy()
 
     print("After target cleaning:", data.shape)
 
@@ -256,7 +206,7 @@ def main():
     # --------------------------------------------------------
     # 6) Fit preprocessing config
     # --------------------------------------------------------
-    config = fit_preprocessor(train_df)
+    config = fit_preprocessor()
 
     # --------------------------------------------------------
     # 7) Preprocess features
@@ -293,7 +243,7 @@ def main():
     print(X_train.columns.tolist())
 
     # --------------------------------------------------------
-    # 9) Train final model
+    # 9) Train model
     # --------------------------------------------------------
     model = XGBRegressor(**FINAL_XGB_PARAMS)
     model.fit(X_train, y_train)
@@ -327,8 +277,6 @@ def main():
     # --------------------------------------------------------
     # 11) Save artifacts
     # --------------------------------------------------------
-    ensure_artifact_dir(ARTIFACT_DIR)
-
     model_path = os.path.join(ARTIFACT_DIR, "xgb_model.pkl")
     config_path = os.path.join(ARTIFACT_DIR, "preprocessing_config.json")
     params_path = os.path.join(ARTIFACT_DIR, "best_xgb_params.json")
@@ -369,7 +317,6 @@ def main():
     print(demo_preds[cols_to_show].to_string(index=False))
 
     print("\nDone.")
-
 
 if __name__ == "__main__":
     main()

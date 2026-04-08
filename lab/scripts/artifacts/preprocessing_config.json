@@ -1,22 +1,19 @@
 {
-  "target_col": "Lab. AH",
-  "selected_features": [
-    "1 (60950-1)",
-    "Lab. SH",
-    "standard_count",
-    "total_CB_count",
-    "total_test_count"
-  ],
-  "numeric_cols": [
-    "Lab. AH",
-    "1 (60950-1)",
-    "Lab. SH",
-    "standard_count",
-    "total_CB_count",
-    "total_test_count"
-  ],
-  "total_cb_binary": true,
-  "standard_count_int": true,
-  "lab_sh_fillna_zero": true,
-  "feature_version": "LAB_V1"
+    "target_col": "Lab. AH",
+    "log_target_col": "Lab_AH_log",
+    "selected_features": [
+        "standard_count",
+        "total_CB_count",
+        "total_test_count",
+        "1 (60950-1)"
+    ],
+    "numeric_cols": [
+        "standard_count",
+        "total_CB_count",
+        "total_test_count",
+        "1 (60950-1)"
+    ],
+    "total_cb_binary": true,
+    "standard_count_int": true,
+    "feature_version": "LAB_4_INPUT_TEST"
 }

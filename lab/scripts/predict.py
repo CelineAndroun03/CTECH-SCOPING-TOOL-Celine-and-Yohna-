@@ -14,7 +14,6 @@ ARTIFACT_DIR = os.path.join(BASE_DIR, "artifacts")
 MODEL_PATH = os.path.join(ARTIFACT_DIR, "xgb_model.pkl")
 CONFIG_PATH = os.path.join(ARTIFACT_DIR, "preprocessing_config.json")
 
-
 # ============================================================
 # LOAD ARTIFACTS
 # ============================================================
@@ -32,7 +31,6 @@ def load_artifacts():
         config = json.load(f)
 
     return model, config
-
 
 # ============================================================
 # PREPROCESSING
@@ -57,17 +55,13 @@ def preprocess_features(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         temp["total_test_count"] = temp["total_test_count"].fillna(0)
 
     if "1 (60950-1)" in temp.columns:
-        temp["1 (60950-1)"] = temp["1 (60950-1)"].fillna(0)
-
-    if "Lab. SH" in temp.columns and config.get("lab_sh_fillna_zero", False):
-        temp["Lab. SH"] = temp["Lab. SH"].fillna(0)
+        temp["1 (60950-1)"] = temp["1 (60950-1)"].fillna(0).astype(int)
 
     # Force exact feature order used in training
     X = temp.reindex(columns=config["selected_features"], fill_value=0).copy()
     X = X.fillna(0)
 
     return X
-
 
 # ============================================================
 # PREDICTION
@@ -86,17 +80,14 @@ def predict_hours(df: pd.DataFrame) -> pd.DataFrame:
 
     return output
 
-
 # ============================================================
 # TEST RUN
 # ============================================================
 
 if __name__ == "__main__":
-    # Example local test
     sample = pd.DataFrame([
         {
             "1 (60950-1)": 1,
-            "Lab. SH": 3,
             "standard_count": 2,
             "total_CB_count": 1,
             "total_test_count": 4

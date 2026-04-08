@@ -32,7 +32,7 @@ class LabPredictionInput(BaseModel):
     standard_count: float
     total_CB_count: float
     total_test_count: float
-    Lab_SH: float
+    # Lab_SH: float
     stan_60950_1: int
 
 
@@ -52,7 +52,7 @@ def transform_eng_input(data):
 def transform_lab_input(data):
     df = pd.DataFrame(data)
     df = df.rename(columns={
-        "Lab_SH": "Lab. SH",
+        # "Lab_SH": "Lab. SH",
         "stan_60950_1": "1 (60950-1)"
     })
     return df
