@@ -1,6 +1,4 @@
 {
-    "target_col": "Lab. AH",
-    "log_target_col": "Lab_AH_log",
     "selected_features": [
         "standard_count",
         "total_CB_count",
@@ -15,5 +13,10 @@
     ],
     "total_cb_binary": true,
     "standard_count_int": true,
+    "target_col": "Lab. AH",
+    "log_target_col": "Lab_AH_log",
+    "dropped_leakage_cols": [
+        "Lab. SH"
+    ],
     "feature_version": "LAB_4_INPUT_TEST"
 }
